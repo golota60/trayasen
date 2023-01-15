@@ -1,4 +1,5 @@
 use idasen::get_instance_by_mac;
+use serde_derive::{Deserialize, Serialize};
 use std::process::Command;
 use std::str;
 use tray_item::TrayItem;
@@ -12,6 +13,17 @@ static LINUX_DATA_DIR: &str = "$HOME/.local/share";
  * 1. store data somewhere in the system(system specific)
  * 2. save & load stuff to that file(json probably)
  */
+
+#[derive(Deserialize, Serialize, Debug)]
+struct Position {
+    name: String,
+    value: u16,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct ConfigData {
+    saved_positions: Vec<Position>,
+}
 
 enum ConfigPaths {
     Linux,
@@ -45,7 +57,8 @@ impl ConfigPaths {
 fn load_config() -> String {
     let sys = cfg!(windows);
     let config = ConfigPaths::Linux.get_config_path();
-    config
+    let config = config.trim_end();
+    config.to_string()
 }
 
 // EE:4D:A2:34:E4:8F
@@ -53,16 +66,20 @@ fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");
     gtk::init().expect("Error while initializing GTK");
 
-    let path = load_config();
-    println!("{:?}", path);
+    let config_path = load_config();
+    println!("{:?}", config_path);
 
-    // let desk = rt.spawn();
-    let desk = rt.block_on(async { get_instance_by_mac("EE:4D:A2:34:E4:8F").await });
-    // TODO: Find a better way of unwrapping this shit
-    let desk = match desk {
-        Ok(desk) => desk,
-        Err(error) => panic!("Error while connecting to the desk: {:?}", error),
+    let config = {
+
+        let file = std::fs::read_to_string(config_path).expect("Error while reading config file");
+
+        serde_json::from_str::<ConfigData>(&file).expect("Error while parsing config file")
     };
+
+    println!("Config: {:?}", config);
+
+    let desk = rt.block_on(async { get_instance_by_mac("EE:4D:A2:34:E4:8F").await });
+    let desk = desk.expect("Error while connecting to the desk:");
 
     // TODO: how accessorries icons work?
     let mut tray = TrayItem::new("Idasen desk tray", "accessories-calculator").unwrap();

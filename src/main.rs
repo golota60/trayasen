@@ -92,16 +92,27 @@ fn main() {
     let mut conf_list_submenu = ContextMenu::new();
 
     // Header - does nothing, this is more of a decorator - maybe there's a better way than disable button?
-    let tray_item = MenuItemAttributes::new("Idasen controller").with_enabled(false);
-    main_tray.add_item(tray_item);
+    let tray_header = MenuItemAttributes::new("Idasen controller").with_enabled(false);
+    main_tray.add_item(tray_header);
 
     // TODO: Have an exit button
     // TODO: Spawn item for each config elem and assign click actions to them
-    let conf_item_title = "Subtray Idasen controller";
-    let conf_item_menuid = MenuId::new(conf_item_title);
-    let conf_item = MenuItemAttributes::new(conf_item_title).with_id(conf_item_menuid);
-    conf_list_submenu.add_item(conf_item);
-    main_tray.add_submenu("sth test", true, conf_list_submenu);
+    let configs = config.saved_positions;
+    let mut menu_ids = configs
+        .iter()
+        .map(|temp_conf_elem| {
+            let conf_item_title = temp_conf_elem.name.as_str();
+            let conf_item_menuid = MenuId::new(conf_item_title);
+            let conf_item = MenuItemAttributes::new(conf_item_title).with_id(conf_item_menuid);
+            conf_list_submenu.add_item(conf_item);
+            conf_item_menuid
+        })
+        .collect::<Vec<MenuId>>();
+
+    main_tray.add_submenu("Profiles", true, conf_list_submenu);
+
+    let tray_quit = MenuItemAttributes::new("Quit");
+    main_tray.add_item(tray_quit);
 
     // TODO: have a nicer icon
     let icon = Icon::from_rgba(vec![70; 16], 2, 2).expect("error happen: ");
@@ -113,9 +124,9 @@ fn main() {
     event_loop.run(move |event, _event_loop, _control_flow| match event {
         tao::event::Event::MenuEvent { menu_id, .. } => {
             println!(
-                "sth: {:?}. Is equal: {:?}",
+                "sth: {:?}. Is equal: later",
                 menu_id,
-                menu_id == conf_item_menuid
+                // menu_id == conf_item_menuid // TODO: hoist stuff out of loop to compare what was clicked
             );
         }
         _ => {}

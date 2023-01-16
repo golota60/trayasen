@@ -41,7 +41,7 @@ impl ConfigPaths {
 
         match self {
             ConfigPaths::Linux => {
-                let mut home = Command::new("sh")
+                let home = Command::new("sh")
                     .arg("-c")
                     .arg(path)
                     .output()
@@ -56,7 +56,6 @@ impl ConfigPaths {
 }
 
 fn load_config() -> String {
-    let sys = cfg!(windows);
     let config = ConfigPaths::Linux.get_config_path();
     let config = config.trim_end();
     config.to_string()
@@ -65,14 +64,17 @@ fn load_config() -> String {
 // EE:4D:A2:34:E4:8F
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");
-
     let event_loop = EventLoop::new();
 
     let config_path = load_config();
     println!("Config path: {:?}", config_path);
 
-    let file = read_to_string(config_path).expect("Error while reading config file");
-    let config = from_str::<ConfigData>(file.as_str()).expect("Error while parsing config file");
+    let config = {
+        let file = read_to_string(config_path).expect("Error while reading config file");
+        let config =
+            from_str::<ConfigData>(file.as_str()).expect("Error while parsing config file");
+        config
+    };
 
     println!("Loaded config: {:?}", config);
 
@@ -82,7 +84,7 @@ fn main() {
     let mut main_tray = ContextMenu::new();
     let mut conf_list_submenu = ContextMenu::new();
 
-    // Header - does nothing, this is more of a decorator - maybe there's a better way than disable button?
+    // Header - does nothing, this is more of a decorator
     let tray_header = MenuItemAttributes::new("Idasen controller").with_enabled(false);
     main_tray.add_item(tray_header);
 
@@ -90,7 +92,7 @@ fn main() {
         .saved_positions
         .iter()
         .map(|temp_conf_elem| {
-            // Assign values so that they are not lost
+            // Assign values so that they are not lost - TODO: figure out why the fuck does that even happen
             let name = &temp_conf_elem.name;
             let value = &temp_conf_elem.value;
             let conf_item_title = name.as_str().clone();
@@ -110,24 +112,25 @@ fn main() {
     // TODO: have a nicer icon
     let icon = Icon::from_rgba(vec![70; 16], 2, 2).expect("error happen: ");
 
-    let system_tray = SystemTrayBuilder::new(icon, Some(main_tray))
+    let _system_tray = SystemTrayBuilder::new(icon, Some(main_tray))
         .build(&event_loop)
         .unwrap();
 
     event_loop.run(move |event, _event_loop, _control_flow| match event {
         tao::event::Event::MenuEvent { menu_id, .. } => {
-            if (menu_id == tray_quit_id) {
+            if menu_id == tray_quit_id {
                 std::process::exit(0);
             } else {
                 let found_elem = menu_ids
                     .iter()
                     .find(|pos| pos.0 == menu_id)
                     .expect("Clicked element not found");
-                // let target_height = configs.get(index)
                 rt.block_on(async {
                     println!("Moving the table");
-                    desk.move_to(found_elem.2).await
-                });
+                    let target_height = found_elem.2;
+                    desk.move_to(target_height).await
+                })
+                .unwrap();
             }
         }
         _ => {}

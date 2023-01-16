@@ -15,19 +15,13 @@ static CONFIG_FILE_NAME: &str = "config.json";
 static FOLDER_NAME: &str = "idasen-tray";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
 
-/**
- * TODO list:
- * 1. store data somewhere in the system(system specific)
- * 2. save & load stuff to that file(json probably)
- */
-
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 struct Position {
     name: String,
     value: u16,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 struct ConfigData {
     saved_positions: Vec<Position>,
 }
@@ -77,11 +71,8 @@ fn main() {
     let config_path = load_config();
     println!("Config path: {:?}", config_path);
 
-    let config = {
-        let file = read_to_string(config_path).expect("Error while reading config file");
-
-        from_str::<ConfigData>(&file).expect("Error while parsing config file")
-    };
+    let file = read_to_string(config_path).expect("Error while reading config file");
+    let config = from_str::<ConfigData>(file.as_str()).expect("Error while parsing config file");
 
     println!("Loaded config: {:?}", config);
 
@@ -95,23 +86,25 @@ fn main() {
     let tray_header = MenuItemAttributes::new("Idasen controller").with_enabled(false);
     main_tray.add_item(tray_header);
 
-    // TODO: Have an exit button
-    // TODO: Spawn item for each config elem and assign click actions to them
-    let configs = config.saved_positions;
-    let mut menu_ids = configs
+    let menu_ids = config
+        .saved_positions
         .iter()
         .map(|temp_conf_elem| {
-            let conf_item_title = temp_conf_elem.name.as_str();
+            // Assign values so that they are not lost
+            let name = &temp_conf_elem.name;
+            let value = &temp_conf_elem.value;
+            let conf_item_title = name.as_str().clone();
             let conf_item_menuid = MenuId::new(conf_item_title);
             let conf_item = MenuItemAttributes::new(conf_item_title).with_id(conf_item_menuid);
             conf_list_submenu.add_item(conf_item);
-            conf_item_menuid
+            (conf_item_menuid.clone(), name.clone(), value.clone())
         })
-        .collect::<Vec<MenuId>>();
+        .collect::<Vec<(MenuId, String, u16)>>();
 
     main_tray.add_submenu("Profiles", true, conf_list_submenu);
 
-    let tray_quit = MenuItemAttributes::new("Quit");
+    let tray_quit_id = MenuId::new("Quit");
+    let tray_quit = MenuItemAttributes::new("Quit").with_id(tray_quit_id);
     main_tray.add_item(tray_quit);
 
     // TODO: have a nicer icon
@@ -123,11 +116,19 @@ fn main() {
 
     event_loop.run(move |event, _event_loop, _control_flow| match event {
         tao::event::Event::MenuEvent { menu_id, .. } => {
-            println!(
-                "sth: {:?}. Is equal: later",
-                menu_id,
-                // menu_id == conf_item_menuid // TODO: hoist stuff out of loop to compare what was clicked
-            );
+            if (menu_id == tray_quit_id) {
+                std::process::exit(0);
+            } else {
+                let found_elem = menu_ids
+                    .iter()
+                    .find(|pos| pos.0 == menu_id)
+                    .expect("Clicked element not found");
+                // let target_height = configs.get(index)
+                rt.block_on(async {
+                    println!("Moving the table");
+                    desk.move_to(found_elem.2).await
+                });
+            }
         }
         _ => {}
     });

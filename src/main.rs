@@ -1,8 +1,15 @@
 use idasen::get_instance_by_mac;
 use serde_derive::{Deserialize, Serialize};
-use std::process::Command;
+use serde_json::from_str;
 use std::str;
-use tray_item::TrayItem;
+use std::{fs::read_to_string, process::Command};
+use tao::menu::MenuId;
+use tao::{
+    event_loop::EventLoop,
+    menu::{ContextMenu, MenuItemAttributes},
+    system_tray::SystemTrayBuilder,
+    window::Icon,
+};
 
 static CONFIG_FILE_NAME: &str = "config.json";
 static FOLDER_NAME: &str = "idasen-tray";
@@ -64,40 +71,53 @@ fn load_config() -> String {
 // EE:4D:A2:34:E4:8F
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");
-    gtk::init().expect("Error while initializing GTK");
+
+    let event_loop = EventLoop::new();
 
     let config_path = load_config();
-    println!("{:?}", config_path);
+    println!("Config path: {:?}", config_path);
 
     let config = {
+        let file = read_to_string(config_path).expect("Error while reading config file");
 
-        let file = std::fs::read_to_string(config_path).expect("Error while reading config file");
-
-        serde_json::from_str::<ConfigData>(&file).expect("Error while parsing config file")
+        from_str::<ConfigData>(&file).expect("Error while parsing config file")
     };
 
-    println!("Config: {:?}", config);
+    println!("Loaded config: {:?}", config);
 
     let desk = rt.block_on(async { get_instance_by_mac("EE:4D:A2:34:E4:8F").await });
     let desk = desk.expect("Error while connecting to the desk:");
 
-    // TODO: how accessorries icons work?
-    let mut tray = TrayItem::new("Idasen desk tray", "accessories-calculator").unwrap();
+    let mut main_tray = ContextMenu::new();
+    let mut conf_list_submenu = ContextMenu::new();
 
-    tray.add_label("Idasen controller").unwrap();
+    // Header - does nothing, this is more of a decorator - maybe there's a better way than disable button?
+    let tray_item = MenuItemAttributes::new("Idasen controller").with_enabled(false);
+    main_tray.add_item(tray_item);
 
-    tray.add_menu_item("Bring up", move || {
-        rt.block_on(async {
-            println!("Trying to bring your idasen up!");
-            desk.move_to(8000).await.unwrap();
-        });
-    })
-    .unwrap();
+    // TODO: Have an exit button
+    // TODO: Spawn item for each config elem and assign click actions to them
+    let conf_item_title = "Subtray Idasen controller";
+    let conf_item_menuid = MenuId::new(conf_item_title);
+    let conf_item = MenuItemAttributes::new(conf_item_title).with_id(conf_item_menuid);
+    conf_list_submenu.add_item(conf_item);
+    main_tray.add_submenu("sth test", true, conf_list_submenu);
 
-    tray.add_menu_item("Quit", || {
-        gtk::main_quit();
-    })
-    .unwrap();
+    // TODO: have a nicer icon
+    let icon = Icon::from_rgba(vec![70; 16], 2, 2).expect("error happen: ");
 
-    gtk::main();
+    let system_tray = SystemTrayBuilder::new(icon, Some(main_tray))
+        .build(&event_loop)
+        .unwrap();
+
+    event_loop.run(move |event, _event_loop, _control_flow| match event {
+        tao::event::Event::MenuEvent { menu_id, .. } => {
+            println!(
+                "sth: {:?}. Is equal: {:?}",
+                menu_id,
+                menu_id == conf_item_menuid
+            );
+        }
+        _ => {}
+    });
 }

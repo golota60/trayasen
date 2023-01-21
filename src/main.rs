@@ -1,6 +1,6 @@
-use idasen::get_instance_by_mac;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::from_str;
+use std::any::Any;
 use std::str;
 use std::{fs::read_to_string, process::Command};
 use tao::menu::MenuId;
@@ -11,9 +11,11 @@ use tao::{
     window::Icon,
 };
 
-static CONFIG_FILE_NAME: &str = "config.json";
-static FOLDER_NAME: &str = "idasen-tray";
+mod local_idasen;
+
+static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
+static MACOS_DATA_DIR: &str = "$HOME/Library\\ Application Support/";
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 struct Position {
@@ -23,40 +25,50 @@ struct Position {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 struct ConfigData {
+    mac_address: Option<String>,
     saved_positions: Vec<Position>,
 }
 
-enum ConfigPaths {
+enum SupportedSystems {
     Linux,
     MacOS,
     Windows,
 }
 
-impl ConfigPaths {
+impl SupportedSystems {
     fn get_config_path(&self) -> String {
-        let path = format!(
-            "echo {}/{}/{}",
-            LINUX_DATA_DIR, FOLDER_NAME, CONFIG_FILE_NAME
-        );
-
         match self {
-            ConfigPaths::Linux => {
+            SupportedSystems::Linux => {
+                let path = format!("echo {}/{}", LINUX_DATA_DIR, CONFIG_FILE_NAME);
                 let home = Command::new("sh")
                     .arg("-c")
                     .arg(path)
                     .output()
-                    .expect("Failed to get $HOME path");
+                    .expect("Failed to get config path");
 
-                String::from_utf8(home.stdout).expect("Error while parsing $HOME path")
+                String::from_utf8(home.stdout).expect("Error while parsing config path")
             }
-            ConfigPaths::MacOS => todo!(),
-            ConfigPaths::Windows => todo!(),
+            SupportedSystems::MacOS => {
+                let path = format!("echo {}/{}", MACOS_DATA_DIR, CONFIG_FILE_NAME);
+                let home = Command::new("sh")
+                    .arg("-c")
+                    .arg(path)
+                    .output()
+                    .expect("Failed to get config path");
+
+                String::from_utf8(home.stdout).expect("Error while parsing config path")
+                // todo!()
+            }
+            SupportedSystems::Windows => {
+                // {FOLDERID_RoamingAppData}
+                todo!()
+            }
         }
     }
 }
 
 fn load_config() -> String {
-    let config = ConfigPaths::Linux.get_config_path();
+    let config = SupportedSystems::Linux.get_config_path();
     let config = config.trim_end();
     config.to_string()
 }
@@ -78,8 +90,12 @@ fn main() {
 
     println!("Loaded config: {:?}", config);
 
-    let desk = rt.block_on(async { get_instance_by_mac("EE:4D:A2:34:E4:8F").await });
-    let desk = desk.expect("Error while connecting to the desk:");
+    // TODO: Idea - since MAC address is more reliable, maybe save it in the config after the first connection and then connect via it?
+    let mac_address = config.mac_address; //"EE:4D:A2:34:E4:8F";
+
+    let desk = rt
+        .block_on(local_idasen::get_universal_instance(mac_address))
+        .expect("Error while unwrapping local idasen instance");
 
     let mut main_tray = ContextMenu::new();
     let mut conf_list_submenu = ContextMenu::new();

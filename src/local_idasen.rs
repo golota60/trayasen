@@ -2,7 +2,7 @@ use btleplug::api::BDAddr;
 use idasen::{get_desks, Device, Error, Idasen};
 
 /// Get the desk instance. MAC Address is optional - if provided, it will be used.
-pub async fn get_universal_instance(mac: Option<String>) -> Result<Idasen<impl Device>, Error> {
+pub async fn get_universal_instance(mac: &Option<String>) -> Result<Idasen<impl Device>, Error> {
     let desk = match mac {
         // If MAC was provided
         Some(mac_value) => {

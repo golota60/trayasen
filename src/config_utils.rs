@@ -1,10 +1,13 @@
+use btleplug::api::BDAddr;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::{
-    fs::{read_to_string, OpenOptions},
+    fs::{self, read_to_string, OpenOptions},
     io::Write,
+    path::Path,
     process::Command,
 };
+use tao::system_tray::Icon;
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
@@ -61,8 +64,10 @@ impl SupportedSystems {
 }
 
 pub fn load_config() -> ConfigData {
-    let config_path = SupportedSystems::Linux.get_config_path();
-    let config_path = config_path.trim_end().to_string();
+    let config_path = SupportedSystems::Linux
+        .get_config_path()
+        .trim_end()
+        .to_string();
 
     println!("Config path: {:?}", config_path);
 
@@ -80,21 +85,50 @@ pub fn load_config() -> ConfigData {
                 mac_address: None,
                 saved_positions: vec![],
             };
-            let stringed_config = to_string::<ConfigData>(&new_config).unwrap();
+            let stringified_config = to_string::<ConfigData>(&new_config).unwrap();
+            // Using OpenOptions cause it's the easiest to create a file with.
             let mut conf_file = OpenOptions::new()
                 .write(true)
                 .read(true)
                 .create(true)
                 .open(&config_path.to_string())
-                .expect("Error while crating a new config");
+                .expect("Error while creating a new config");
 
-            conf_file
-                .write_all(&mut stringed_config.as_bytes())
-                .unwrap();
+            conf_file.write_all(&stringified_config.as_bytes()).unwrap();
 
             new_config
         }
     };
 
     config
+}
+
+// Generally this function should never error, cause all the same operations have been done miliseconds before.
+pub fn save_mac_address(new_mac_address: BDAddr) {
+    let config_path = SupportedSystems::Linux
+        .get_config_path()
+        .trim_end()
+        .to_string();
+    let old_conf_file =
+        read_to_string(&config_path.to_string()).expect("Opening a config to save MAC Address");
+    let mut mut_conf_file =
+        from_str::<ConfigData>(&old_conf_file).expect("Parsing a config to save MAC Address");
+
+    mut_conf_file.mac_address = Some(new_mac_address.to_string());
+
+    let stringified_new_config = to_string::<ConfigData>(&mut_conf_file).unwrap();
+    fs::write(config_path, stringified_new_config)
+        .expect("Saving a config after parsing a MAC Address");
+}
+
+pub fn load_icon(path: &Path) -> Icon {
+    let (icon_rgba, icon_width, icon_height) = {
+        let image = image::open(path)
+            .expect("Failed to open icon path")
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        (rgba, width, height)
+    };
+    Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
 }

@@ -1,9 +1,9 @@
 use tao::menu::MenuId;
 use tao::{
+    event::Event,
     event_loop::EventLoop,
     menu::{ContextMenu, MenuItemAttributes},
     system_tray::SystemTrayBuilder,
-    window::Icon,
 };
 
 mod config_utils;
@@ -20,8 +20,14 @@ fn main() {
     let mac_address = config.mac_address;
 
     let desk = rt
-        .block_on(local_idasen::get_universal_instance(mac_address))
+        .block_on(local_idasen::get_universal_instance(&mac_address))
         .expect("Error while unwrapping local idasen instance");
+
+    // Save the desk's MAC address, if not present
+    if mac_address.is_none() {
+        let new_mac_address = desk.mac_addr;
+        config_utils::save_mac_address(new_mac_address);
+    }
 
     let mut main_tray = ContextMenu::new();
     let mut conf_list_submenu = ContextMenu::new();
@@ -51,15 +57,14 @@ fn main() {
     let tray_quit = MenuItemAttributes::new("Quit").with_id(tray_quit_id);
     main_tray.add_item(tray_quit);
 
-    // TODO: have a nicer icon
-    let icon = Icon::from_rgba(vec![70; 16], 2, 2).expect("error happen: ");
+    let icon = config_utils::load_icon(std::path::Path::new("./assets/carrot_1.png"));
 
     let _system_tray = SystemTrayBuilder::new(icon, Some(main_tray))
         .build(&event_loop)
         .unwrap();
 
     event_loop.run(move |event, _event_loop, _control_flow| match event {
-        tao::event::Event::MenuEvent { menu_id, .. } => {
+        Event::MenuEvent { menu_id, .. } => {
             if menu_id == tray_quit_id {
                 std::process::exit(0);
             } else {

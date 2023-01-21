@@ -11,9 +11,9 @@ $HOME/.local/share/idasen-tray/config.json
 
 roadmap:
 
-- [ ] create config file if not present
+- [x] create config file if not present
 - [ ] implement adding new profiles
-- [ ] drop MAC address requirement; add some better way
+- [x] drop MAC address requirement; add some better way
 - [ ] windows support
 - [ ] macos support
 - [ ] nicer icon

@@ -1,6 +1,10 @@
 use serde_derive::{Deserialize, Serialize};
-use serde_json::from_str;
-use std::{fs::read_to_string, process::Command};
+use serde_json::{from_str, to_string};
+use std::{
+    fs::{read_to_string, OpenOptions},
+    io::Write,
+    process::Command,
+};
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
@@ -62,11 +66,34 @@ pub fn load_config() -> ConfigData {
 
     println!("Config path: {:?}", config_path);
 
-    let config = {
-        let file = read_to_string(config_path).expect("Error while reading config file");
-        let config =
-            from_str::<ConfigData>(file.as_str()).expect("Error while parsing config file");
-        config
+    let config = match read_to_string(&config_path) {
+        // Config exists
+        Ok(s) => {
+            let config =
+                from_str::<ConfigData>(s.as_str()).expect("Error while parsing config file");
+            config
+        }
+        // Config does not exist. Create a dummy one.
+        // Check for different errors?
+        Err(_) => {
+            let new_config = ConfigData {
+                mac_address: None,
+                saved_positions: vec![],
+            };
+            let stringed_config = to_string::<ConfigData>(&new_config).unwrap();
+            let mut conf_file = OpenOptions::new()
+                .write(true)
+                .read(true)
+                .create(true)
+                .open(&config_path.to_string())
+                .expect("Error while crating a new config");
+
+            conf_file
+                .write_all(&mut stringed_config.as_bytes())
+                .unwrap();
+
+            new_config
+        }
     };
 
     config

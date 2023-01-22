@@ -7,7 +7,10 @@ use std::{
     path::Path,
     process::Command,
 };
-use tao::system_tray::Icon;
+use tao::{
+    menu::{ContextMenu, MenuId, MenuItemAttributes},
+    system_tray::Icon,
+};
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
@@ -134,7 +137,7 @@ pub fn get_config() -> ConfigData {
     stringified_new_config
 }
 
-pub fn update_config(updated_config: ConfigData) {
+pub fn update_config(updated_config: &ConfigData) {
     let config_path = SupportedSystems::Linux
         .get_config_path()
         .trim_end()
@@ -143,6 +146,73 @@ pub fn update_config(updated_config: ConfigData) {
     let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
     fs::write(config_path, stringified_new_config)
         .expect("Saving a config after updatign a config");
+}
+
+pub fn get_buttons_from_config(config: &ConfigData) -> Vec<(MenuId, String, u16, String)> {
+    config
+        .saved_positions
+        .iter()
+        .map(|temp_conf_elem| {
+            // Assign values so that they are not lost - TODO: figure out why the fuck does that even happen
+            let name = &temp_conf_elem.name;
+            let value = &temp_conf_elem.value;
+            let conf_item_title = name.as_str().clone();
+            let conf_item_menuid = MenuId::new(conf_item_title);
+            (
+                conf_item_menuid.clone(),
+                name.clone(),
+                value.clone(),
+                conf_item_title.clone().to_owned(),
+            )
+        })
+        .collect::<Vec<(MenuId, String, u16, String)>>()
+}
+
+pub fn recreate_submenu(
+    args: &Vec<(MenuId, String, u16, String)>,
+    mut submenu: ContextMenu,
+) -> ContextMenu {
+    for el in args {
+        let conf_item_button = MenuItemAttributes::new(&el.3).with_id(el.0);
+        submenu.add_item(conf_item_button);
+    }
+    submenu
+}
+
+pub struct MainTrayData {
+    pub menu: ContextMenu,
+    pub menu_ids: Vec<(MenuId, String, u16, String)>,
+    pub tray_quit_id: MenuId,
+    pub tray_new_id: MenuId,
+}
+
+pub fn create_main_tray(config: &ConfigData) -> MainTrayData {
+    let mut main_tray = ContextMenu::new();
+    let mut conf_list_submenu = ContextMenu::new();
+
+    // Header - does nothing, this is more of a decorator(a disabled button)
+    let tray_header_button = MenuItemAttributes::new("Idasen controller").with_enabled(false);
+    main_tray.add_item(tray_header_button);
+
+    let tray_new_title = "Add a new position";
+    let tray_new_id = MenuId::new("New position");
+    let tray_new_button = MenuItemAttributes::new(tray_new_title).with_id(tray_new_id);
+    conf_list_submenu.add_item(tray_new_button);
+
+    let menu_ids = get_buttons_from_config(&config);
+    let conf_list_submenu = recreate_submenu(&menu_ids, conf_list_submenu);
+
+    main_tray.add_submenu("Positions", true, conf_list_submenu);
+
+    let tray_quit_id = MenuId::new("Quit");
+    let tray_quit_button = MenuItemAttributes::new("Quit").with_id(tray_quit_id);
+    main_tray.add_item(tray_quit_button);
+    MainTrayData {
+        menu: main_tray,
+        menu_ids,
+        tray_quit_id,
+        tray_new_id,
+    }
 }
 
 // https://github.com/tauri-apps/tao/blob/e1149563b85eb6187f5aa78d53cab9c5d7b87025/examples/system_tray.rs#L136

@@ -880,6 +880,7 @@ version = "0.1.0"
 dependencies = [
  "btleplug",
  "futures",
+ "gtk",
  "idasen",
  "image",
  "libappindicator",

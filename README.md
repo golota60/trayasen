@@ -14,7 +14,7 @@ roadmap:
 - [x] create config file if not present
 - [x] drop MAC address requirement; add some better way
 - [x] auto save MAC address upon first connection to be reused later
-- [ ] implement adding new desk positions
+- [x] implement adding new/deleting old desk positions
 - [ ] windows support
 - [ ] macos support
 - [x] nicer icon
@@ -22,4 +22,5 @@ roadmap:
 - [ ] better desk moving behavior(currently it moves weirdly)
 - [ ] more information inside README(looks, potential problems, manual config setting, moving config from pc to pc)
 - [ ] app tests
+- [ ] research dropping tao for GTK usage only
 - [ ] run on system startup(?)

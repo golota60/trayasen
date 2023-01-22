@@ -879,9 +879,7 @@ name = "idasen-tray"
 version = "0.1.0"
 dependencies = [
  "btleplug",
- "either",
  "futures",
- "gtk",
  "idasen",
  "image",
  "libappindicator",

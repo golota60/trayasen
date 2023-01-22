@@ -32,9 +32,9 @@ fn main() {
     let mut main_tray = ContextMenu::new();
     let mut conf_list_submenu = ContextMenu::new();
 
-    // Header - does nothing, this is more of a decorator
-    let tray_header = MenuItemAttributes::new("Idasen controller").with_enabled(false);
-    main_tray.add_item(tray_header);
+    // Header - does nothing, this is more of a decorator(a disabled button)
+    let tray_header_button = MenuItemAttributes::new("Idasen controller").with_enabled(false);
+    main_tray.add_item(tray_header_button);
 
     let menu_ids = config
         .saved_positions
@@ -45,17 +45,23 @@ fn main() {
             let value = &temp_conf_elem.value;
             let conf_item_title = name.as_str().clone();
             let conf_item_menuid = MenuId::new(conf_item_title);
-            let conf_item = MenuItemAttributes::new(conf_item_title).with_id(conf_item_menuid);
-            conf_list_submenu.add_item(conf_item);
+            let conf_item_button =
+                MenuItemAttributes::new(conf_item_title).with_id(conf_item_menuid);
+            conf_list_submenu.add_item(conf_item_button);
             (conf_item_menuid.clone(), name.clone(), value.clone())
         })
         .collect::<Vec<(MenuId, String, u16)>>();
 
-    main_tray.add_submenu("Profiles", true, conf_list_submenu);
+    let tray_new_title = "Add a new position";
+    let tray_new_id = MenuId::new("New position");
+    let tray_new_button = MenuItemAttributes::new(tray_new_title).with_id(tray_new_id);
+    conf_list_submenu.add_item(tray_new_button);
+
+    main_tray.add_submenu("Positions", true, conf_list_submenu);
 
     let tray_quit_id = MenuId::new("Quit");
-    let tray_quit = MenuItemAttributes::new("Quit").with_id(tray_quit_id);
-    main_tray.add_item(tray_quit);
+    let tray_quit_button = MenuItemAttributes::new("Quit").with_id(tray_quit_id);
+    main_tray.add_item(tray_quit_button);
 
     let icon = config_utils::load_icon(std::path::Path::new("./assets/carrot_1.png"));
 

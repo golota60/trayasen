@@ -18,6 +18,7 @@ roadmap:
 - [ ] windows support
 - [ ] macos support
 - [x] nicer icon
+- [ ] hover text
 - [ ] better desk moving behavior(currently it moves weirdly)
 - [ ] more information inside README(looks, potential problems, manual config setting, moving config from pc to pc)
 - [ ] app tests

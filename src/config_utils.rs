@@ -121,6 +121,31 @@ pub fn save_mac_address(new_mac_address: BDAddr) {
         .expect("Saving a config after parsing a MAC Address");
 }
 
+pub fn get_config() -> ConfigData {
+    let config_path = SupportedSystems::Linux
+        .get_config_path()
+        .trim_end()
+        .to_string();
+
+    let old_conf_file = read_to_string(&config_path.to_string()).expect("Opening a config");
+    let stringified_new_config =
+        from_str::<ConfigData>(&old_conf_file).expect("Parsing opened config to struct");
+
+    stringified_new_config
+}
+
+pub fn update_config(updated_config: ConfigData) {
+    let config_path = SupportedSystems::Linux
+        .get_config_path()
+        .trim_end()
+        .to_string();
+
+    let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
+    fs::write(config_path, stringified_new_config)
+        .expect("Saving a config after updatign a config");
+}
+
+// https://github.com/tauri-apps/tao/blob/e1149563b85eb6187f5aa78d53cab9c5d7b87025/examples/system_tray.rs#L136
 pub fn load_icon(path: &Path) -> Icon {
     let (icon_rgba, icon_width, icon_height) = {
         let image = image::open(path)

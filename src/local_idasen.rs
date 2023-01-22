@@ -11,10 +11,8 @@ pub async fn get_universal_instance(mac: &Option<String>) -> Result<Idasen<impl 
             match addr {
                 Ok(addr) => {
                     let desks = get_desks(Some(addr)).await?;
-                    Ok(
-                        Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?)
-                            .await?,
-                    )
+
+                    Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?).await
                 }
                 Err(err) => Err(Error::MacAddrParseFailed(err)),
             }

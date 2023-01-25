@@ -41,3 +41,4 @@ macos bugs:
 - [ ] build
 - [ ] problems with connecting - need to reconnect every time - maybe fixing below will fix this
 - [ ] MAC address is 00:00 always for some reason
+- [ ] GTK window with new position is non interactive - doesn't respond to anything

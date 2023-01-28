@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gtk::ApplicationWindow;
 use gtk::prelude::*;
 use gtk::Window;
 use gtk::{gio, glib};
@@ -20,13 +21,75 @@ fn main() {
 
     println!("Loaded config: {:?}", config);
 
+
+
+
+
+
+    println!("Trying to create an app...");
     let application = gtk::Application::new(
         Some("com.github.gtk-rs.examples.entry-completion"),
         Default::default(),
     );
-    application.connect_activate(test);
+    println!("Created an app");
 
+    application.connect_activate(move |_app| {
+
+        println!("connect activate");
+        let name_info = gtk::Label::new(Some("Position name"));
+        let height_info =
+            format!("Height: a number between {} and {}", MIN_HEIGHT, MAX_HEIGHT);
+        let height_info = gtk::Label::new(Some(&height_info));
+        let content_wrapper = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .margin(12)
+            .build();
+        let button = gtk::Button::builder().label("Add a position").build();
+
+        let name_input = gtk::Entry::new();
+        let value_input = gtk::Entry::new();
+        content_wrapper.pack_start(&name_info, true, true, 10);
+        content_wrapper.pack_start(&name_input, true, true, 10);
+        content_wrapper.pack_start(&height_info, true, true, 10);
+        content_wrapper.pack_start(&value_input, true, true, 10);
+        content_wrapper.pack_start(&button, true, true, 10);
+
+        let gtk_window = ApplicationWindow::new(_app);
+
+        gtk_window.set_size_request(256, 128);
+        gtk_window.add(&content_wrapper);
+        gtk_window.show_all();
+
+        button.connect_clicked(move |_| {
+            let new_name = name_input.text().to_string();
+            let new_value = value_input
+                .text()
+                .to_string()
+                .parse::<u16>()
+                .expect("Value should be a number");
+
+            // TODO: validate input better than exiting app
+            let mut config = config_utils::get_config();
+            config.saved_positions.push(config_utils::Position {
+                name: new_name,
+                value: new_value,
+            });
+            config_utils::update_config(&config);
+
+            let new_menu = config_utils::create_main_tray(&config).menu;
+            // Followup to the shit i did upwards
+
+            gtk_window.close();
+        });
+
+    });
+    
     application.run();
+
+
+
+
+
 
     let mac_address = &config.mac_address;
 
@@ -70,62 +133,65 @@ fn main() {
 
                 let prevlol = Rc::clone(&cloned_tray);
 
-                application.connect_activate(test);
+                // application.connect_activate(test);
 
+                // application.run();
+
+                application.connect_activate(move |_app| {
+
+                    println!("connect activate");
+                    let name_info = gtk::Label::new(Some("Position name"));
+                    let height_info =
+                        format!("Height: a number between {} and {}", MIN_HEIGHT, MAX_HEIGHT);
+                    let height_info = gtk::Label::new(Some(&height_info));
+                    let content_wrapper = gtk::Box::builder()
+                        .orientation(Orientation::Vertical)
+                        .margin(12)
+                        .build();
+                    let button = gtk::Button::builder().label("Add a position").build();
+
+                    let name_input = gtk::Entry::new();
+                    let value_input = gtk::Entry::new();
+                    content_wrapper.pack_start(&name_info, true, true, 10);
+                    content_wrapper.pack_start(&name_input, true, true, 10);
+                    content_wrapper.pack_start(&height_info, true, true, 10);
+                    content_wrapper.pack_start(&value_input, true, true, 10);
+                    content_wrapper.pack_start(&button, true, true, 10);
+
+                    let gtk_window = Window::builder().resizable(false).build();
+
+                    gtk_window.set_size_request(256, 128);
+                    gtk_window.add(&content_wrapper);
+                    gtk_window.show_all();
+
+                    let lol = Rc::clone(&prevlol);
+                    button.connect_clicked(move |_| {
+                        let new_name = name_input.text().to_string();
+                        let new_value = value_input
+                            .text()
+                            .to_string()
+                            .parse::<u16>()
+                            .expect("Value should be a number");
+
+                        // TODO: validate input better than exiting app
+                        let mut config = config_utils::get_config();
+                        config.saved_positions.push(config_utils::Position {
+                            name: new_name,
+                            value: new_value,
+                        });
+                        config_utils::update_config(&config);
+
+                        let new_menu = config_utils::create_main_tray(&config).menu;
+                        // Followup to the shit i did upwards
+                        let mut borrowed_cloned_tray = lol.borrow_mut();
+                        borrowed_cloned_tray.set_menu(&new_menu);
+
+                        gtk_window.close();
+                    });
+
+                });
+                
                 application.run();
-
-                // application.connect_activate(move |_app| {
-
-                //     println!("connect activate");
-                //     let name_info = gtk::Label::new(Some("Position name"));
-                //     let height_info =
-                //         format!("Height: a number between {} and {}", MIN_HEIGHT, MAX_HEIGHT);
-                //     let height_info = gtk::Label::new(Some(&height_info));
-                //     let content_wrapper = gtk::Box::builder()
-                //         .orientation(Orientation::Vertical)
-                //         .margin(12)
-                //         .build();
-                //     let button = gtk::Button::builder().label("Add a position").build();
-
-                //     let name_input = gtk::Entry::new();
-                //     let value_input = gtk::Entry::new();
-                //     content_wrapper.pack_start(&name_info, true, true, 10);
-                //     content_wrapper.pack_start(&name_input, true, true, 10);
-                //     content_wrapper.pack_start(&height_info, true, true, 10);
-                //     content_wrapper.pack_start(&value_input, true, true, 10);
-                //     content_wrapper.pack_start(&button, true, true, 10);
-
-                //     let gtk_window = Window::builder().resizable(false).build();
-
-                //     gtk_window.set_size_request(256, 128);
-                //     gtk_window.add(&content_wrapper);
-                //     gtk_window.show_all();
-
-                //     let lol = Rc::clone(&prevlol);
-                //     button.connect_clicked(move |_| {
-                //         let new_name = name_input.text().to_string();
-                //         let new_value = value_input
-                //             .text()
-                //             .to_string()
-                //             .parse::<u16>()
-                //             .expect("Value should be a number");
-
-                //         // TODO: validate input better than exiting app
-                //         let mut config = config_utils::get_config();
-                //         config.saved_positions.push(config_utils::Position {
-                //             name: new_name,
-                //             value: new_value,
-                //         });
-                //         config_utils::update_config(&config);
-
-                //         let new_menu = config_utils::create_main_tray(&config).menu;
-                //         // Followup to the shit i did upwards
-                //         let mut borrowed_cloned_tray = lol.borrow_mut();
-                //         borrowed_cloned_tray.set_menu(&new_menu);
-
-                //         gtk_window.close();
-                //     });
-                // });
             } else {
                 let found_elem = menu_ids
                     .iter()

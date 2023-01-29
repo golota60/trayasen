@@ -16,7 +16,7 @@ static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
 static MACOS_DATA_DIR: &str = "$HOME/Library\\ Application Support/";
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Position {
     pub name: String,
     pub value: u16,

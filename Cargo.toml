@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 btleplug = "0.9.1"
+eframe = "0.20.1"
 futures = "0.3.25"
-gtk = "0.15"
 idasen = "0.2.0"
 image = "0.24.5"
 libappindicator = "0.7"

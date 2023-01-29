@@ -148,7 +148,14 @@ pub fn update_config(updated_config: &ConfigData) {
         .expect("Saving a config after updatign a config");
 }
 
-pub fn get_buttons_from_config(config: &ConfigData) -> Vec<(MenuId, String, u16, String)> {
+pub struct MenuConfigElem {
+    pub elem_menu_id: MenuId,
+    pub name: String,
+    pub value: u16,
+    pub conf_item_title: String,
+}
+
+pub fn get_menus_from_config(config: &ConfigData) -> Vec<MenuConfigElem> {
     config
         .saved_positions
         .iter()
@@ -158,22 +165,20 @@ pub fn get_buttons_from_config(config: &ConfigData) -> Vec<(MenuId, String, u16,
             let value = &temp_conf_elem.value;
             let conf_item_title = name.as_str().clone();
             let conf_item_menuid = MenuId::new(conf_item_title);
-            (
-                conf_item_menuid.clone(),
-                name.clone(),
-                value.clone(),
-                conf_item_title.clone().to_owned(),
-            )
+            MenuConfigElem {
+                elem_menu_id: conf_item_menuid.clone(),
+                name: name.clone(),
+                value: value.clone(),
+                conf_item_title: conf_item_title.clone().to_owned(),
+            }
         })
-        .collect::<Vec<(MenuId, String, u16, String)>>()
+        .collect::<Vec<MenuConfigElem>>()
 }
 
-pub fn recreate_submenu(
-    args: &Vec<(MenuId, String, u16, String)>,
-    mut submenu: ContextMenu,
-) -> ContextMenu {
+pub fn recreate_submenu(args: &Vec<MenuConfigElem>, mut submenu: ContextMenu) -> ContextMenu {
     for el in args {
-        let conf_item_button = MenuItemAttributes::new(&el.3).with_id(el.0);
+        let conf_item_button =
+            MenuItemAttributes::new(&el.conf_item_title).with_id(el.elem_menu_id);
         submenu.add_item(conf_item_button);
     }
     submenu
@@ -181,7 +186,7 @@ pub fn recreate_submenu(
 
 pub struct MainTrayData {
     pub menu: ContextMenu,
-    pub menu_ids: Vec<(MenuId, String, u16, String)>,
+    pub menu_ids: Vec<MenuConfigElem>,
     pub tray_quit_id: MenuId,
     pub tray_new_id: MenuId,
 }
@@ -199,7 +204,7 @@ pub fn create_main_tray(config: &ConfigData) -> MainTrayData {
     let tray_new_button = MenuItemAttributes::new(tray_new_title).with_id(tray_new_id);
     conf_list_submenu.add_item(tray_new_button);
 
-    let menu_ids = get_buttons_from_config(&config);
+    let menu_ids = get_menus_from_config(&config);
     let conf_list_submenu = recreate_submenu(&menu_ids, conf_list_submenu);
 
     main_tray.add_submenu("Positions", true, conf_list_submenu);

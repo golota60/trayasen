@@ -34,7 +34,7 @@ roadmap:
 - [ ] run on system startup(?)
 
 overall bugs:
-- [ ] clicking on newly added element
+- [x] clicking on newly added element
 
 macos bugs:
 - [ ] build

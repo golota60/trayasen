@@ -60,16 +60,19 @@ fn main() {
                 let new_menu = config_utils::create_main_tray(&config).menu;
                 system_tray.set_menu(&new_menu);
             } else {
-                let found_elem = menu_ids
+                // Get config one more time, in case there's a new position added since intialization
+                let config = config_utils::get_config();
+                let updated_menus = config_utils::get_menus_from_config(&config);
+                let found_elem = updated_menus
                     .iter()
-                    .find(|pos| pos.0 == menu_id)
+                    .find(|pos| pos.elem_menu_id == menu_id)
                     .expect("Clicked element not found");
                 rt.block_on(async {
                     println!(
                         "Moving the table. Pos name: {}. Pos height:{}",
-                        found_elem.1, found_elem.2
+                        found_elem.name, found_elem.value
                     );
-                    let target_height = found_elem.2;
+                    let target_height = found_elem.value;
                     desk.move_to(target_height).await
                 })
                 .unwrap();

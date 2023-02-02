@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use tauri::SystemTrayEvent;
+use tauri::{SystemTray, SystemTrayEvent};
 
 mod config_utils;
 mod local_idasen;
@@ -50,7 +50,8 @@ fn main() {
         config_utils::save_mac_address(new_mac_address);
     }
 
-    let tray = config_utils::create_main_tray(&config);
+    let tray = config_utils::create_main_tray_menu(&config);
+    let tray = SystemTray::new().with_menu(tray);
 
     tauri::Builder::default()
         .system_tray(tray)
@@ -118,6 +119,11 @@ fn main() {
         .expect("error while running tauri application")
         .run(|_app_handle, event| match event {
             tauri::RunEvent::ExitRequested { api, .. } => {
+                // Exit requested might mean that a new element has been added.
+                let config = config_utils::get_config();
+                let main_menu = config_utils::create_main_tray_menu(&config);
+                _app_handle.tray_handle().set_menu(main_menu);
+
                 api.prevent_exit();
             }
             _ => {}

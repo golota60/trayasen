@@ -8,10 +8,27 @@ use tauri::SystemTrayEvent;
 mod config_utils;
 mod local_idasen;
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn create_new_elem(name: &str, value: u16) -> String {
+    let mut config = config_utils::get_config();
+
+    let is_duplicate = config.saved_positions.iter().find(|elem| elem.name == name);
+    match is_duplicate {
+        Some(_) => {
+            // Duplicate found
+            "duplicate".to_string()
+        }
+        None => {
+            // No duplicate
+            config.saved_positions.push(config_utils::Position {
+                name: name.to_string(),
+                value: value,
+            });
+            config_utils::update_config(&config);
+
+            "success".to_string()
+        }
+    }
 }
 
 fn main() {
@@ -37,7 +54,7 @@ fn main() {
 
     tauri::Builder::default()
         .system_tray(tray)
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![create_new_elem])
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 config_utils::QUIT_ID => {
@@ -60,7 +77,7 @@ fn main() {
                     .expect("Error while trying to open about window");
                 }
                 config_utils::ADD_POSITION_ID => {
-                    tauri::WindowBuilder::new(
+                    let x = tauri::WindowBuilder::new(
                         app,
                         "main",
                         tauri::WindowUrl::App("index.html".into()),

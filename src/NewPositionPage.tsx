@@ -3,11 +3,13 @@ import React, { useState } from "react";
 import Button from "./generic/Button";
 import Input from "./generic/Input";
 import { MAX_HEIGHT, MIN_HEIGHT } from "./utils";
+import { appWindow } from "@tauri-apps/api/window";
 
 enum ErrorCodes {
   no_name = "Name cannot be empty",
   wrong_value = "Value has to be between 6200 and 12700", // MIN_HEIGHT and MAX_HEIGHT
   value_string = "Value has to be a number",
+  duplicate = "A position with that name already exists",
 }
 
 const NewPositionPage = () => {
@@ -27,8 +29,8 @@ const NewPositionPage = () => {
     setValue(newVal);
   };
 
-  async function greet() {
-    await invoke("greet", { name });
+  async function createNewElem(): Promise<"duplicate" | "success"> {
+    return await invoke("create_new_elem", { name, value:Number(value) });
   }
 
   return (
@@ -51,7 +53,7 @@ const NewPositionPage = () => {
 
         <Button
           className="mt-2"
-          onClick={() => {
+          onClick={async () => {
             let valAsNum = Number(value);
             let locErr: ErrorCodes | undefined;
             if (!name) {
@@ -68,8 +70,16 @@ const NewPositionPage = () => {
             if (locErr) {
               setError(locErr);
             } else {
-              // all good, do shit
-              console.log("doing");
+              // try to create an elem
+              let resp = await createNewElem();
+
+              if (resp === "duplicate") {
+                setError(ErrorCodes.duplicate);
+              } else {
+                // exit cause shits been created
+                console.log('closing...')
+                appWindow.close();
+              }
             }
           }}
         >

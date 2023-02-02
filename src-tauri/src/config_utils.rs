@@ -2,18 +2,20 @@ use btleplug::api::BDAddr;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::{
-    borrow::BorrowMut,
     fs::{self, read_to_string, OpenOptions},
     io::Write,
-    path::Path,
     process::Command,
-    rc::Rc,
 };
 use tauri::{CustomMenuItem, SystemTray, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu};
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
 static MACOS_DATA_DIR: &str = "$HOME/Library\\ Application Support/";
+
+pub const QUIT_ID: &str = "quit";
+pub const ABOUT_ID: &str = "about";
+pub const ADD_POSITION_ID: &str = "add_position";
+pub const HEADER_ID: &str = "idasen_controller";
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Position {
@@ -27,7 +29,7 @@ pub struct ConfigData {
     pub saved_positions: Vec<Position>,
 }
 
-enum SupportedSystems {
+pub enum SupportedSystems {
     Linux,
     MacOS,
     Windows,
@@ -195,12 +197,10 @@ pub struct MainTrayData {
     pub tray: SystemTray,
     // For id retrieval
     pub position_menu_items: Vec<MenuConfigItem>,
-    pub quit_item: CustomMenuItem,
-    pub add_position_item: CustomMenuItem,
 }
 
 pub fn create_main_tray(config: &ConfigData) -> MainTrayData {
-    let add_position_item = CustomMenuItem::new("add_position".to_string(), "Add a new position");
+    let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
     let position_menu_items = get_menu_items_from_config(&config);
     // The element that opens up on hover
 
@@ -217,10 +217,9 @@ pub fn create_main_tray(config: &ConfigData) -> MainTrayData {
     // The element to show in the main_menu
     let positions_submenu = SystemTraySubmenu::new("Positions", sys_tray_menu);
 
-    let header_item =
-        CustomMenuItem::new("idasen_controller".to_string(), "Idasen Controller").disabled();
-    let about_item = CustomMenuItem::new("about".to_string(), "About");
-    let quit_item = CustomMenuItem::new("quit".to_string(), "Quit");
+    let header_item = CustomMenuItem::new(HEADER_ID.to_string(), "Idasen Controller").disabled();
+    let about_item = CustomMenuItem::new(ABOUT_ID.to_string(), "About");
+    let quit_item = CustomMenuItem::new(QUIT_ID.to_string(), "Quit");
     let main_menu = SystemTrayMenu::new()
         .add_item(header_item)
         .add_native_item(SystemTrayMenuItem::Separator)
@@ -233,20 +232,5 @@ pub fn create_main_tray(config: &ConfigData) -> MainTrayData {
     MainTrayData {
         tray,
         position_menu_items,
-        quit_item,
-        add_position_item,
     }
 }
-
-// https://github.com/tauri-apps/tao/blob/e1149563b85eb6187f5aa78d53cab9c5d7b87025/examples/system_tray.rs#L136
-// pub fn load_icon(path: &Path) -> Icon {
-//     let (icon_rgba, icon_width, icon_height) = {
-//         let image = image::open(path)
-//             .expect("Failed to open icon path")
-//             .into_rgba8();
-//         let (width, height) = image.dimensions();
-//         let rgba = image.into_raw();
-//         (rgba, width, height)
-//     };
-//     Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
-// }

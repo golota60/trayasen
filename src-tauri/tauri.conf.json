@@ -53,8 +53,10 @@
         "fullscreen": false,
         "height": 600,
         "resizable": true,
-        "title": "idasen-tray-webview",
-        "width": 800
+        "title": "Idasen Controller",
+        "label": "main",
+        "width": 800,
+        "alwaysOnTop": true
       }
     ],
     "systemTray": {

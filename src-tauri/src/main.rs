@@ -73,7 +73,6 @@ fn main() {
                     history.replaceState({}, '','/about');
                     "#,
                     )
-                    .decorations(false)
                     .build()
                     .expect("Error while trying to open about window");
                 }
@@ -89,7 +88,6 @@ fn main() {
                     history.replaceState({}, '','/new-position');
                     "#,
                     )
-                    .decorations(false)
                     .build()
                     .expect("Error while trying to open new postition window");
                 }

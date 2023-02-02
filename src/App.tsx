@@ -1,33 +1,35 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/tauri";
-import "./App.css";
+import AboutPage from "./AboutPage";
+import NewPositionPage from "./NewPositionPage";
+import IntroPage from "./IntroPage";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+const PageContent = () => {
+  const path = window.location.pathname;
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    setGreetMsg(await invoke("greet", { name }));
+  // Do not rely on router for simplicity
+  if (path === "/about") {
+    return <AboutPage />;
   }
 
+  if (path === "/new-position") {
+    return <NewPositionPage />;
+  }
+
+  if (path === "/intro") {
+    return <IntroPage />;
+  }
+
+  // Return intro page as a fallback; this should never happen but yeah fuck me if it does
+  return <IntroPage />;
+};
+
+function App() {
+
+
   return (
-    <div className="container">
-      <h1>Welcome to Tauri!</h1>
-      <div className="row">
-        <div>
-          <input
-            id="greet-input"
-            onChange={(e) => setName(e.currentTarget.value)}
-            placeholder="Enter a name..."
-          />
-          <button type="button" onClick={() => greet()}>
-            Greet
-          </button>
-        </div>
-      </div>
-      <p>{greetMsg}</p>
+    <div className="flex-col bg-slate-800 w-full h-full flex justify-center items-center font-sans text-slate-100">
+      <PageContent />
     </div>
   );
 }

@@ -33,10 +33,7 @@ fn main() {
         config_utils::save_mac_address(new_mac_address);
     }
 
-    let config_utils::MainTrayData {
-        tray,
-        position_menu_items,
-    } = config_utils::create_main_tray(&config);
+    let tray = config_utils::create_main_tray(&config);
 
     tauri::Builder::default()
         .system_tray(tray)
@@ -53,6 +50,12 @@ fn main() {
                         tauri::WindowUrl::App("index.html".into()),
                     )
                     .always_on_top(true)
+                    .initialization_script(
+                        r#"
+                    history.replaceState({}, '','/about');
+                    "#,
+                    )
+                    .decorations(false)
                     .build()
                     .expect("Error while trying to open about window");
                 }
@@ -63,6 +66,12 @@ fn main() {
                         tauri::WindowUrl::App("index.html".into()),
                     )
                     .always_on_top(true)
+                    .initialization_script(
+                        r#"
+                    history.replaceState({}, '','/new-position');
+                    "#,
+                    )
+                    .decorations(false)
                     .build()
                     .expect("Error while trying to open new postition window");
                 }

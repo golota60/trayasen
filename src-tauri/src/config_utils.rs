@@ -193,13 +193,7 @@ pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
 //     conf_item_button
 // }
 
-pub struct MainTrayData {
-    pub tray: SystemTray,
-    // For id retrieval
-    pub position_menu_items: Vec<MenuConfigItem>,
-}
-
-pub fn create_main_tray(config: &ConfigData) -> MainTrayData {
+pub fn create_main_tray(config: &ConfigData) -> SystemTray {
     let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
     let position_menu_items = get_menu_items_from_config(&config);
     // The element that opens up on hover
@@ -229,8 +223,5 @@ pub fn create_main_tray(config: &ConfigData) -> MainTrayData {
         .add_item(quit_item.clone());
 
     let tray = SystemTray::new().with_menu(main_menu);
-    MainTrayData {
-        tray,
-        position_menu_items,
-    }
+    tray
 }

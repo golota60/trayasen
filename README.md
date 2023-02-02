@@ -34,8 +34,12 @@ roadmap:
 - [ ] run on system startup(?)
 
 overall bugs:
+
 - [x] clicking on newly added element
+- [ ] manually stopping an operation deadlocks the app
+- [ ] opening a new window while the other is already open
 
 macos bugs:
+
 - [ ] build
 - [ ] MAC address is 00:00 always for some reason

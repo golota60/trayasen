@@ -25,7 +25,7 @@
       },
       "externalBin": [],
       "icon": ["icons/carrot.png"],
-      "identifier": "com.tauri.dev",
+      "identifier": "szywis.idasen.tray-v0.0.1",
       "longDescription": "",
       "macOS": {
         "entitlements": null,

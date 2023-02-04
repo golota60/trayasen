@@ -5,6 +5,7 @@
 
 use tauri::{Manager, SystemTray, SystemTrayEvent};
 
+mod broken_idasen;
 mod config_utils;
 mod local_idasen;
 
@@ -47,6 +48,7 @@ fn main() {
     // Save the desk's MAC address, if not present
     if mac_address.is_none() {
         let new_mac_address = desk.mac_addr;
+        // println!("{:?}", desk);
         config_utils::save_mac_address(new_mac_address);
     }
 

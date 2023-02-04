@@ -1,5 +1,6 @@
 use btleplug::api::BDAddr;
-use idasen::{get_desks, Device, Error, Idasen};
+
+use crate::broken_idasen::{get_desks, Device, Error, Idasen};
 
 /// Get the desk instance. MAC Address is optional - if provided, it will be used.
 pub async fn get_universal_instance(mac: &Option<String>) -> Result<Idasen<impl Device>, Error> {
@@ -20,7 +21,8 @@ pub async fn get_universal_instance(mac: &Option<String>) -> Result<Idasen<impl 
         // If MAC was NOT provided
         None => {
             let desks = get_desks(None).await?;
-            Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?).await
+            let desk = Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?).await;
+            desk
         }
     };
     desk

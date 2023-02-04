@@ -2,11 +2,15 @@ use btleplug::api::BDAddr;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::{
+    env,
     fs::{self, read_to_string, OpenOptions},
     io::Write,
     process::Command,
 };
-use tauri::{CustomMenuItem, SystemTray, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu};
+use tauri::{
+    api::path::data_dir, CustomMenuItem, SystemTray, SystemTrayMenu, SystemTrayMenuItem,
+    SystemTraySubmenu,
+};
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 static LINUX_DATA_DIR: &str = "$HOME/.local/share";
@@ -30,51 +34,48 @@ pub struct ConfigData {
     pub saved_positions: Vec<Position>,
 }
 
-pub enum SupportedSystems {
-    Linux,
-    MacOS,
-    Windows,
-}
+fn get_config_path() -> String {
+    let mut dir = data_dir()
+        .expect("Error whiel unwrapping data directory")
+        .to_str()
+        .expect("err")
+        .to_string();
 
-impl SupportedSystems {
-    fn get_config_path(&self) -> String {
-        match self {
-            SupportedSystems::Linux => {
-                let path = format!("echo {}/{}", LINUX_DATA_DIR, CONFIG_FILE_NAME);
-                let home = Command::new("sh")
-                    .arg("-c")
-                    .arg(path)
-                    .output()
-                    .expect("Failed to get config path");
-
-                String::from_utf8(home.stdout).expect("Error while parsing config path")
-            }
-            SupportedSystems::MacOS => {
-                let path = format!("echo {}/{}", MACOS_DATA_DIR, CONFIG_FILE_NAME);
-                let home = Command::new("sh")
-                    .arg("-c")
-                    .arg(path)
-                    .output()
-                    .expect("Failed to get config path");
-
-                String::from_utf8(home.stdout).expect("Error while parsing config path")
-                // todo!()
-            }
-            SupportedSystems::Windows => {
-                // {FOLDERID_RoamingAppData}
-                todo!()
-            }
-        }
+    if dir.ends_with("/") {
+        dir.push_str(CONFIG_FILE_NAME);
+    } else {
+        dir.push_str("/");
+        dir.push_str(CONFIG_FILE_NAME);
     }
+
+    dir
+
+    // match self {
+    //     SupportedSystems::Linux => data_dir()
+    //         .expect("Error whiel unwrapping data directory")
+    //         .to_str()
+    //         .expect("err")
+    //         .to_string()
+    //         .push_str(CONFIG_FILE_NAME),
+    //     SupportedSystems::MacOS => data_dir()
+    //         .expect("Error whiel unwrapping data directory")
+    //         .to_str()
+    //         .expect("err")
+    //         .to_string()
+    //         .push_str(CONFIG_FILE_NAME),
+    //     SupportedSystems::Windows => data_dir()
+    //         .expect("Error whiel unwrapping data directory")
+    //         .to_str()
+    //         .expect("err")
+    //         .to_string()
+    //         .push_str(CONFIG_FILE_NAME),
+    // }
 }
 
 // TODO: use get_config here? or merge two funcs together?
 // For FIRST loading
 pub fn get_or_create_config() -> ConfigData {
-    let config_path = SupportedSystems::Linux
-        .get_config_path()
-        .trim_end()
-        .to_string();
+    let config_path = get_config_path().trim_end().to_string();
 
     println!("Config path: {:?}", config_path);
 
@@ -112,10 +113,7 @@ pub fn get_or_create_config() -> ConfigData {
 
 // Generally this function should never error, cause all the same operations have been done miliseconds before.
 pub fn save_mac_address(new_mac_address: BDAddr) {
-    let config_path = SupportedSystems::Linux
-        .get_config_path()
-        .trim_end()
-        .to_string();
+    let config_path = get_config_path().trim_end().to_string();
     let old_conf_file =
         read_to_string(&config_path.to_string()).expect("Opening a config to save MAC Address");
     let mut mut_conf_file =
@@ -143,10 +141,7 @@ pub fn remove_position(pos_name: &str) -> ConfigData {
 
 #[tauri::command]
 pub fn get_config() -> ConfigData {
-    let config_path = SupportedSystems::Linux
-        .get_config_path()
-        .trim_end()
-        .to_string();
+    let config_path = get_config_path().trim_end().to_string();
 
     let old_conf_file = read_to_string(&config_path.to_string()).expect("Opening a config");
     let stringified_new_config =
@@ -156,10 +151,7 @@ pub fn get_config() -> ConfigData {
 }
 
 pub fn update_config(updated_config: &ConfigData) {
-    let config_path = SupportedSystems::Linux
-        .get_config_path()
-        .trim_end()
-        .to_string();
+    let config_path = get_config_path().trim_end().to_string();
 
     let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
     fs::write(config_path, stringified_new_config)

@@ -27,8 +27,8 @@ roadmap:
 - [ ] windows support
 - [ ] macos support
 - [x] nicer icon
-- [ ] better input window decorator
-- [ ] better desk moving behavior(currently it moves weirdly)
+- [x] better input window decorator- no need imo
+- [ ] better desk moving behavior(currently it moves weirdly, due to usage of external lib)
 - [ ] more information inside README(looks, potential problems, manual config setting, moving config from pc to pc)
 - [ ] app tests
 - [ ] run on system startup(?)
@@ -36,7 +36,7 @@ roadmap:
 overall bugs:
 
 - [x] clicking on newly added element
-- [ ] manually stopping an operation deadlocks the app
+- [ ] manually stopping a moving desk deadlocks the app
 - [ ] opening a new window while the other is already open
 
 macos bugs:

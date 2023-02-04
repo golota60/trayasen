@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use tauri::{SystemTray, SystemTrayEvent};
+use tauri::{Manager, SystemTray, SystemTrayEvent};
 
 mod config_utils;
 mod local_idasen;
@@ -115,7 +115,18 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, event| match event {
+        .run(move |_app_handle, event| match event {
+            tauri::RunEvent::Ready => {
+                // Immidiately close the window if user has done the initialization
+                let is_init_done = config.saved_positions.len() > 0;
+
+                if (is_init_done) {
+                    let win = _app_handle
+                        .get_window("main")
+                        .expect("Error while unwrapping window on init");
+                    win.close();
+                }
+            }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
                 let config = config_utils::get_config();

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
+import ManagePositionsPage from "./ManagePositionsPage";
 
 const PageContent = () => {
   const path = window.location.pathname;
@@ -16,6 +17,10 @@ const PageContent = () => {
     return <NewPositionPage />;
   }
 
+  if (path === "/manage-positions") {
+    return <ManagePositionsPage />;
+  }
+
   if (path === "/intro") {
     return <IntroPage />;
   }
@@ -25,10 +30,8 @@ const PageContent = () => {
 };
 
 function App() {
-
-
   return (
-    <div className="flex-col bg-slate-800 w-full h-full flex justify-center items-center font-sans text-slate-100">
+    <div className="flex-col bg-slate-800 h-full flex justify-center items-center font-sans text-slate-100">
       <PageContent />
     </div>
   );

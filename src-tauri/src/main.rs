@@ -34,7 +34,7 @@ fn create_new_elem(name: &str, value: u16) -> String {
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");
 
-    let config = config_utils::load_config();
+    let config = config_utils::get_or_create_config();
 
     println!("Loaded config: {:?}", config);
 
@@ -55,7 +55,11 @@ fn main() {
 
     tauri::Builder::default()
         .system_tray(tray)
-        .invoke_handler(tauri::generate_handler![create_new_elem])
+        .invoke_handler(tauri::generate_handler![
+            create_new_elem,
+            config_utils::get_config,
+            config_utils::remove_position
+        ])
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 config_utils::QUIT_ID => {
@@ -90,6 +94,21 @@ fn main() {
                     )
                     .build()
                     .expect("Error while trying to open new postition window");
+                }
+                config_utils::MANAGE_POSITIONS_ID => {
+                    let x = tauri::WindowBuilder::new(
+                        app,
+                        "main",
+                        tauri::WindowUrl::App("index.html".into()),
+                    )
+                    .always_on_top(true)
+                    .initialization_script(
+                        r#"
+                    history.replaceState({}, '','/manage-positions');
+                    "#,
+                    )
+                    .build()
+                    .expect("Error while trying to open manage positions window");
                 }
                 remaining_id => {
                     // Check whether a position has been clicked

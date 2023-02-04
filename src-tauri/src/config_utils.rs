@@ -16,6 +16,7 @@ pub const QUIT_ID: &str = "quit";
 pub const ABOUT_ID: &str = "about";
 pub const ADD_POSITION_ID: &str = "add_position";
 pub const HEADER_ID: &str = "idasen_controller";
+pub const MANAGE_POSITIONS_ID: &str = "manage_positions";
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Position {
@@ -67,7 +68,9 @@ impl SupportedSystems {
     }
 }
 
-pub fn load_config() -> ConfigData {
+// TODO: use get_config here? or merge two funcs together?
+// For FIRST loading
+pub fn get_or_create_config() -> ConfigData {
     let config_path = SupportedSystems::Linux
         .get_config_path()
         .trim_end()
@@ -125,6 +128,20 @@ pub fn save_mac_address(new_mac_address: BDAddr) {
         .expect("Saving a config after parsing a MAC Address");
 }
 
+#[tauri::command]
+pub fn remove_position(pos_name: &str) -> ConfigData {
+    let mut conf = get_config();
+    let new_conf_positions = conf
+        .saved_positions
+        .into_iter()
+        .filter(|pos| pos.name != pos_name)
+        .collect();
+    conf.saved_positions = new_conf_positions;
+    update_config(&conf);
+    conf
+}
+
+#[tauri::command]
 pub fn get_config() -> ConfigData {
     let config_path = SupportedSystems::Linux
         .get_config_path()
@@ -195,11 +212,14 @@ pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
 
 pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
     let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
+    let manage_positions_item =
+        CustomMenuItem::new(MANAGE_POSITIONS_ID.to_string(), "Manage positions");
     let position_menu_items = get_menu_items_from_config(&config);
     // The element that opens up on hover
 
     let mut sys_tray_menu = SystemTrayMenu::new()
-        .add_item(add_position_item.clone())
+        .add_item(add_position_item)
+        .add_item(manage_positions_item)
         .add_native_item(SystemTrayMenuItem::Separator);
 
     // Populate submenu

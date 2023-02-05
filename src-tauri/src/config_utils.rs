@@ -2,19 +2,14 @@ use btleplug::api::BDAddr;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::{
-    env,
     fs::{self, read_to_string, OpenOptions},
     io::Write,
-    process::Command,
 };
 use tauri::{
-    api::path::data_dir, CustomMenuItem, SystemTray, SystemTrayMenu, SystemTrayMenuItem,
-    SystemTraySubmenu,
+    api::path::data_dir, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu,
 };
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
-static LINUX_DATA_DIR: &str = "$HOME/.local/share";
-static MACOS_DATA_DIR: &str = "$HOME/Library\\ Application Support/";
 
 pub const QUIT_ID: &str = "quit";
 pub const ABOUT_ID: &str = "about";
@@ -49,27 +44,6 @@ fn get_config_path() -> String {
     }
 
     dir
-
-    // match self {
-    //     SupportedSystems::Linux => data_dir()
-    //         .expect("Error whiel unwrapping data directory")
-    //         .to_str()
-    //         .expect("err")
-    //         .to_string()
-    //         .push_str(CONFIG_FILE_NAME),
-    //     SupportedSystems::MacOS => data_dir()
-    //         .expect("Error whiel unwrapping data directory")
-    //         .to_str()
-    //         .expect("err")
-    //         .to_string()
-    //         .push_str(CONFIG_FILE_NAME),
-    //     SupportedSystems::Windows => data_dir()
-    //         .expect("Error whiel unwrapping data directory")
-    //         .to_str()
-    //         .expect("err")
-    //         .to_string()
-    //         .push_str(CONFIG_FILE_NAME),
-    // }
 }
 
 // TODO: use get_config here? or merge two funcs together?
@@ -185,23 +159,6 @@ pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
         .collect::<Vec<MenuConfigItem>>()
 }
 
-// pub fn get_position_items(args: &Vec<MenuConfigItem>) -> CustomMenuItem {
-//     //     let x = args
-//     //     .iter()
-//     //     .map(|el| {
-//     //         // TODO: this might be fucked
-//     //         let conf_item_button =
-//     //             CustomMenuItem::new(el.position_elem.id.to_string(), &el.position_elem.title);
-//     //         conf_item_button
-//     //     })
-//     //     .collect::<Vec<&CustomMenuItem>>();
-//     // x
-//     for el in args {
-//         let conf_item_button = CustomMenuItem::new(el.elem_menu_id, &el.conf_item_title);
-//     }
-//     conf_item_button
-// }
-
 pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
     let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
     let manage_positions_item =
@@ -219,7 +176,6 @@ pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
         sys_tray_menu = sys_tray_menu.add_item(item.position_elem.clone());
     }
 
-    // let x = sys_tray_menu.as_ref();
     // The element to show in the main_menu
     let positions_submenu = SystemTraySubmenu::new("Positions", sys_tray_menu);
 

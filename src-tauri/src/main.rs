@@ -23,7 +23,7 @@ fn create_new_elem(name: &str, value: u16) -> String {
             // No duplicate
             config.saved_positions.push(config_utils::Position {
                 name: name.to_string(),
-                value: value,
+                value,
             });
             config_utils::update_config(&config);
 
@@ -83,7 +83,7 @@ fn main() {
                     .expect("Error while trying to open about window");
                 }
                 config_utils::ADD_POSITION_ID => {
-                    let x = tauri::WindowBuilder::new(
+                    tauri::WindowBuilder::new(
                         app,
                         "main",
                         tauri::WindowUrl::App("index.html".into()),
@@ -98,7 +98,7 @@ fn main() {
                     .expect("Error while trying to open new postition window");
                 }
                 config_utils::MANAGE_POSITIONS_ID => {
-                    let x = tauri::WindowBuilder::new(
+                    tauri::WindowBuilder::new(
                         app,
                         "main",
                         tauri::WindowUrl::App("index.html".into()),
@@ -141,18 +141,21 @@ fn main() {
                 // Immidiately close the window if user has done the initialization
                 let is_init_done = config.saved_positions.len() > 0;
 
-                if (is_init_done) {
+                if is_init_done {
                     let win = _app_handle
                         .get_window("main")
-                        .expect("Error while unwrapping window on init");
-                    win.close();
+                        .expect("Error while getting main window window on init");
+                    win.close().expect("Error while closing the window");
                 }
             }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
                 let config = config_utils::get_config();
                 let main_menu = config_utils::create_main_tray_menu(&config);
-                _app_handle.tray_handle().set_menu(main_menu);
+                _app_handle
+                    .tray_handle()
+                    .set_menu(main_menu)
+                    .expect("Error whilst unwrapping main menu");
 
                 api.prevent_exit();
             }

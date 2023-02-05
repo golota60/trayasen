@@ -1,20 +1,23 @@
 pub use btleplug::api::Peripheral as Device;
 use btleplug::api::{
-    BDAddr, Central, Characteristic, Manager as _, ParseBDAddrError, ScanFilter,
-    WriteType
+    BDAddr, Central, Characteristic, Manager as _, ParseBDAddrError, ScanFilter, WriteType,
 };
 use btleplug::platform::{Adapter, Manager};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::ProgressBar;
 use std::time::Duration;
 use std::{
     cmp::{max, Ordering},
     time::Instant,
 };
+// use tokio_stream::{Stream, StreamExt};
 use uuid::Uuid;
-use tokio_stream::{StreamExt, Stream};
 
-const CONTROL_UUID: Uuid = Uuid::from_bytes( [ 0x99, 0xfa, 0x00, 0x02, 0x33, 0x8a, 0x10, 0x24, 0x8a, 0x49, 0x00, 0x9c, 0x02, 0x15, 0xf7, 0x8a, ]);
-const POSITION_UUID: Uuid = Uuid::from_bytes([ 0x99, 0xfa, 0x00, 0x21, 0x33, 0x8a, 0x10, 0x24, 0x8a, 0x49, 0x00, 0x9c, 0x02, 0x15, 0xf7, 0x8a, ]);
+const CONTROL_UUID: Uuid = Uuid::from_bytes([
+    0x99, 0xfa, 0x00, 0x02, 0x33, 0x8a, 0x10, 0x24, 0x8a, 0x49, 0x00, 0x9c, 0x02, 0x15, 0xf7, 0x8a,
+]);
+const POSITION_UUID: Uuid = Uuid::from_bytes([
+    0x99, 0xfa, 0x00, 0x21, 0x33, 0x8a, 0x10, 0x24, 0x8a, 0x49, 0x00, 0x9c, 0x02, 0x15, 0xf7, 0x8a,
+]);
 
 const UP: [u8; 2] = [0x47, 0x00];
 const DOWN: [u8; 2] = [0x46, 0x00];
@@ -43,10 +46,7 @@ pub struct PositionSpeed {
 pub fn bytes_to_position_speed(bytes: &[u8]) -> PositionSpeed {
     let position = u16::from_le_bytes([bytes[0], bytes[1]]) + MIN_HEIGHT;
     let speed = i16::from_le_bytes([bytes[2], bytes[3]]);
-    PositionSpeed {
-        position,
-        speed
-    }
+    PositionSpeed { position, speed }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -54,18 +54,18 @@ pub enum Error {
     #[error("Cannot find the device.")]
     CannotFindDevice,
 
-    #[error("Cannot connect to the device.")]
-    Connectionerrored,
+    // shits unused
+    // #[error("Cannot connect to the device.")]
+    // Connectionerrored,
 
-    #[error("Cannot scan for devices.")]
-    Scanerrored,
+    // #[error("Cannot scan for devices.")]
+    // Scanerrored,
 
-    #[error("Permission denied.")]
-    PermissionDenied,
+    // #[error("Permission denied.")]
+    // PermissionDenied,
 
-    #[error("Cannot discover Bluetooth characteristics.")]
-    CharacteristicsDiscoveryFailed,
-
+    // #[error("Cannot discover Bluetooth characteristics.")]
+    // CharacteristicsDiscoveryFailed,
     #[error("Bluetooth characteristics not found: '{}'.", _0)]
     CharacteristicsNotFound(String),
 
@@ -75,9 +75,8 @@ pub enum Error {
     #[error("Cannot subscribe to read position.")]
     CannotSubscribePosition,
 
-    #[error("Cannot read position.")]
-    CannotReadPosition,
-
+    // #[error("Cannot read position.")]
+    // CannotReadPosition,
     #[error("errored to parse mac address.")]
     MacAddrParseFailed(#[from] ParseBDAddrError),
 
@@ -131,36 +130,37 @@ async fn search_adapter_for_desks(
     Ok(desks)
 }
 
+// shits unused
 /// Get instance of `Idasen` struct. The desk will be discovered by the name. If multiple are
 /// applicable a random one will be choosen.
-pub async fn get_instance() -> Result<Idasen<impl Device>, Error> {
-    let desks = get_desks(None).await?;
-    Idasen::new(
-        desks
-            .into_iter()
-            .next().ok_or(Error::CannotFindDevice)?,
-    )
-    .await
-}
+// pub async fn get_instance() -> Result<Idasen<impl Device>, Error> {
+//     let desks = get_desks(None).await?;
+//     Idasen::new(
+//         desks
+//             .into_iter()
+//             .next().ok_or(Error::CannotFindDevice)?,
+//     )
+//     .await
+// }
 
-/// Get the desk instance by it's Bluetooth MAC address (BD_ADDR).
-/// The address can be obtained also by accessing `mac_addr` property
-/// on instantiated `Idasen` instance.
-pub async fn get_instance_by_mac(mac: &str) -> Result<Idasen<impl Device>, Error> {
-    let addr = mac.parse::<BDAddr>();
-    match addr {
-        Ok(addr) => {
-            let desks = get_desks(Some(addr)).await?;
-            Ok(Idasen::new(
-                desks
-                    .into_iter()
-                    .next().ok_or(Error::CannotFindDevice)?,
-            )
-            .await?)
-        }
-        Err(err) => Err(Error::MacAddrParseFailed(err)),
-    }
-}
+// /// Get the desk instance by it's Bluetooth MAC address (BD_ADDR).
+// /// The address can be obtained also by accessing `mac_addr` property
+// /// on instantiated `Idasen` instance.
+// pub async fn get_instance_by_mac(mac: &str) -> Result<Idasen<impl Device>, Error> {
+//     let addr = mac.parse::<BDAddr>();
+//     match addr {
+//         Ok(addr) => {
+//             let desks = get_desks(Some(addr)).await?;
+//             Ok(Idasen::new(
+//                 desks
+//                     .into_iter()
+//                     .next().ok_or(Error::CannotFindDevice)?,
+//             )
+//             .await?)
+//         }
+//         Err(err) => Err(Error::MacAddrParseFailed(err)),
+//     }
+// }
 
 pub struct Idasen<T>
 where
@@ -243,12 +243,13 @@ impl<T: Device> Idasen<T> {
         self.move_to_target(target_position, None).await
     }
 
-    pub async fn move_to_with_progress(&self, target_position: u16) -> Result<(), Error> {
-        let initial_position = (target_position as i16 - self.position().await? as i16).abs();
-        let progress = ProgressBar::new(initial_position as u64);
-        progress.set_style(ProgressStyle::default_bar().template("{spinner} {wide_bar} [{msg}cm]"));
-        self.move_to_target(target_position, Some(progress)).await
-    }
+    // shits unused
+    // pub async fn move_to_with_progress(&self, target_position: u16) -> Result<(), Error> {
+    //     let initial_position = (target_position as i16 - self.position().await? as i16).abs();
+    //     let progress = ProgressBar::new(initial_position as u64);
+    //     progress.set_style(ProgressStyle::default_bar().template("{spinner} {wide_bar} [{msg}cm]"));
+    //     self.move_to_target(target_position, Some(progress)).await
+    // }
 
     async fn move_to_target(
         &self,
@@ -324,14 +325,17 @@ impl<T: Device> Idasen<T> {
         Ok(bytes_to_position_speed(&value))
     }
 
-    /// Listen to position and speed changes
-    pub async fn position_and_speed_stream(&self) -> Result<impl Stream<Item = PositionSpeed>, Error> {
-        Ok(self.desk.notifications().await?.filter_map(|notification| {
-            if notification.uuid == POSITION_UUID {
-                Some(bytes_to_position_speed(&notification.value))
-            } else {
-                None
-            }
-        }))
-    }
+    // shits unused
+    // Listen to position and speed changes
+    // pub async fn position_and_speed_stream(
+    //     &self,
+    // ) -> Result<impl Stream<Item = PositionSpeed>, Error> {
+    //     Ok(self.desk.notifications().await?.filter_map(|notification| {
+    //         if notification.uuid == POSITION_UUID {
+    //             Some(bytes_to_position_speed(&notification.value))
+    //         } else {
+    //             None
+    //         }
+    //     }))
+    // }
 }

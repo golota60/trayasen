@@ -32,7 +32,8 @@ fn create_new_elem(name: &str, value: u16) -> String {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");
 
     let config = config_utils::get_or_create_config();
@@ -41,16 +42,16 @@ fn main() {
 
     let mac_address = &config.mac_address;
 
-    let desk = rt
-        .block_on(local_idasen::get_universal_instance(&mac_address))
+    let desk = 
+        local_idasen::get_universal_instance(&mac_address).await
         .expect("Error while unwrapping local idasen instance");
 
     // Save the desk's MAC address, if not present
-    if mac_address.is_none() {
-        let new_mac_address = desk.mac_addr;
-        // println!("{:?}", desk);
-        config_utils::save_mac_address(new_mac_address);
-    }
+    // if mac_address.is_none() {
+    //     let new_mac_address = desk.mac_addr;
+    //     // println!("{:?}", desk);
+    //     config_utils::save_mac_address(new_mac_address);
+    // }
 
     let tray = config_utils::create_main_tray_menu(&config);
     let tray = SystemTray::new().with_menu(tray);
@@ -76,6 +77,7 @@ fn main() {
                     .always_on_top(true)
                     .initialization_script(
                         r#"
+                    window.open_devtools();
                     history.replaceState({}, '','/about');
                     "#,
                     )
@@ -91,6 +93,7 @@ fn main() {
                     .always_on_top(true)
                     .initialization_script(
                         r#"
+                    window.open_devtools();
                     history.replaceState({}, '','/new-position');
                     "#,
                     )
@@ -106,6 +109,7 @@ fn main() {
                     .always_on_top(true)
                     .initialization_script(
                         r#"
+                    window.open_devtools();
                     history.replaceState({}, '','/manage-positions');
                     "#,
                     )
@@ -137,17 +141,17 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(move |_app_handle, event| match event {
-            tauri::RunEvent::Ready => {
-                // Immidiately close the window if user has done the initialization
-                let is_init_done = config.saved_positions.len() > 0;
+            // tauri::RunEvent::Ready => {
+            //     // Immidiately close the window if user has done the initialization
+            //     let is_init_done = config.saved_positions.len() > 0;
 
-                if (is_init_done) {
-                    let win = _app_handle
-                        .get_window("main")
-                        .expect("Error while unwrapping window on init");
-                    win.close();
-                }
-            }
+            //     if is_init_done {
+            //         let win = _app_handle
+            //             .get_window("main")
+            //             .expect("Error while unwrapping window on init");
+            //         win.close().expect("Couldnt close window on init");
+            //     }
+            // }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
                 let config = config_utils::get_config();

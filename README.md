@@ -32,14 +32,17 @@ roadmap:
 - [ ] more information inside README(looks, potential problems, manual config setting, moving config from pc to pc)
 - [ ] app tests
 - [ ] run on system startup(?)
+- [ ] new screen with bluetooth selection
 
 overall bugs:
 
 - [x] clicking on newly added element
 - [ ] manually stopping a moving desk deadlocks the app
 - [ ] opening a new window while the other is already open
+- [ ] routing is fucked on client side
 
 macos bugs:
 
 - [ ] build
 - [ ] MAC address is 00:00 always for some reason
+- [ ] prod - MACOS - cannot exit window on ready

@@ -11,7 +11,14 @@ interface Config {
 }
 
 async function getPositions(): Promise<Config> {
-  return await invoke("get_config");
+  try {
+    return await invoke("get_config");
+  } catch (e) {
+    return {
+      mac_address: "adsf",
+      saved_positions: [{ name: "couldnt load", value: 99999 }],
+    } as Config;
+  }
 }
 
 async function removePosition(positionName: string): Promise<Config> {

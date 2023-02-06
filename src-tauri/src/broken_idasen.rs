@@ -167,7 +167,7 @@ where
     T: Device,
 {
     pub mac_addr: BDAddr,
-    desk: T,
+    pub desk: T,
     control_characteristic: Characteristic,
     position_characteristic: Characteristic,
 }

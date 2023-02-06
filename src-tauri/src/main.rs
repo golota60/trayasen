@@ -60,7 +60,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             create_new_elem,
             config_utils::get_config,
-            config_utils::remove_position
+            config_utils::remove_position,
+            // local_idasen::get_test
         ])
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {

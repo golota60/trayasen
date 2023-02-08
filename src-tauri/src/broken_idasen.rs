@@ -84,22 +84,19 @@ pub enum Error {
     BtlePlugError(#[from] btleplug::Error),
 }
 
-pub async fn get_desks(mac: Option<BDAddr>) -> Result<Vec<impl Device>, Error> {
+pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<impl Device>, Error> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
     let mut jobs = Vec::new();
+    // let loc_clonse =
 
     for adapter in adapters {
-        jobs.push(tokio::spawn(async move {
-            search_adapter_for_desks(adapter, mac).await
-        }));
+        jobs.push(search_adapter_for_desks(adapter, loc_name.clone()).await);
     }
 
     let mut desks = Vec::new();
     for job in jobs {
-        if let Ok(Ok(mut job_desks)) = job.await {
-            desks.append(&mut job_desks)
-        }
+        desks.append(&mut job.unwrap());
     }
 
     if desks.is_empty() {
@@ -111,7 +108,7 @@ pub async fn get_desks(mac: Option<BDAddr>) -> Result<Vec<impl Device>, Error> {
 
 async fn search_adapter_for_desks(
     adapter: Adapter,
-    mac: Option<BDAddr>,
+    name: Option<String>,
 ) -> Result<Vec<impl Device>, Error> {
     adapter.start_scan(ScanFilter::default()).await?;
     tokio::time::sleep(Duration::from_secs(2)).await;
@@ -119,8 +116,17 @@ async fn search_adapter_for_desks(
     let mut desks = Vec::new();
     for peripheral in adapter.peripherals().await? {
         if let Some(props) = peripheral.properties().await? {
-            if match mac {
-                Some(mac) => props.address == mac,
+            if match name {
+                Some(ref device_name) => {
+                    // WE MATCHING BY NAME IN THIS MF CAUSE MACOS DOESNT GIVE US MAC ADDRESS - IM ON MY FUCK MACOS ARC
+                    let y = props.address;
+                    println!("y: {}", y);
+
+                    // some devices might not have a local name
+                    let name = props.local_name.unwrap_or("".to_string());
+
+                    device_name == &name
+                }
                 None => props.local_name.iter().any(|name| name.contains("Desk")),
             } {
                 desks.push(peripheral);

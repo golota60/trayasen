@@ -1,6 +1,6 @@
 use btleplug::api::{BDAddr, Peripheral, PeripheralProperties};
 
-use crate::broken_idasen::{get_desks, Device, Error, Idasen};
+use crate::broken_idasen::{self, get_desks, Device, Error, Idasen};
 
 // #[tauri::command]
 // pub async fn get_test() -> Vec<PeripheralProperties> {
@@ -15,21 +15,14 @@ use crate::broken_idasen::{get_desks, Device, Error, Idasen};
 //     }
 // }
 
-pub async fn get_list_of_desks(mac: &Option<String>) -> Vec<impl Peripheral> {
-    let desks = match mac {
-        // If MAC was provided
-        Some(mac_value) => {
-            let addr = mac_value.as_str().parse::<BDAddr>();
-
-            match addr {
-                Ok(addr) => {
-                    let desks = get_desks(Some(addr)).await;
-                    desks
-                }
-                Err(err) => Err(Error::MacAddrParseFailed(err)),
-            }
+pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<impl Peripheral> {
+    let desks = match loc_name {
+        // If local name was provided
+        Some(loc_name) => {
+            let desks = get_desks(Some(loc_name.clone())).await;
+            desks
         }
-        // If MAC was NOT provided
+        // If local name was NOT provided
         None => {
             let desks = get_desks(None).await;
             desks
@@ -41,20 +34,15 @@ pub async fn get_list_of_desks(mac: &Option<String>) -> Vec<impl Peripheral> {
 }
 
 /// Get the desk instance. MAC Address is optional - if provided, it will be used.
-pub async fn get_universal_instance(mac: &Option<String>) -> Result<Idasen<impl Device>, Error> {
-    let desk = match mac {
+pub async fn get_universal_instance(
+    loc_name: &Option<String>,
+) -> Result<Idasen<impl Device>, Error> {
+    let desk = match loc_name {
         // If MAC was provided
-        Some(mac_value) => {
-            let addr = mac_value.as_str().parse::<BDAddr>();
+        Some(loc_name) => {
+            let desks = get_desks(Some(loc_name.clone())).await?;
 
-            match addr {
-                Ok(addr) => {
-                    let desks = get_desks(Some(addr)).await?;
-
-                    Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?).await
-                }
-                Err(err) => Err(Error::MacAddrParseFailed(err)),
-            }
+            Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?).await
         }
         // If MAC was NOT provided
         None => {

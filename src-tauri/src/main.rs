@@ -41,15 +41,16 @@ fn main() {
 
     let local_name = &config.local_name;
 
-    let desk = rt
+    let power_desk = rt
         .block_on(local_idasen::get_universal_instance(&local_name))
         .expect("Error while unwrapping local idasen instance");
+    let desk = power_desk.actual_idasen;
 
     // Save the desk's MAC address, if not present
     if local_name.is_none() {
-        // let new_local_name = desk.desk.;
+        let new_local_name = power_desk.local_name;
         // println!("{:?}", desk);
-        // config_utils::save_local_name(new_local_name);
+        config_utils::save_local_name(new_local_name);
     }
 
     let tray = config_utils::create_main_tray_menu(&config);

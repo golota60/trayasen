@@ -15,7 +15,7 @@ use crate::broken_idasen::{self, get_desks, Device, Error, Idasen};
 //     }
 // }
 
-pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<impl Peripheral> {
+pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<broken_idasen::ExpandedDesk> {
     let desks = match loc_name {
         // If local name was provided
         Some(loc_name) => {
@@ -42,12 +42,26 @@ pub async fn get_universal_instance(
         Some(loc_name) => {
             let desks = get_desks(Some(loc_name.clone())).await?;
 
-            Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?).await
+            Idasen::new(
+                desks
+                    .into_iter()
+                    .next()
+                    .ok_or(Error::CannotFindDevice)?
+                    .perp,
+            )
+            .await
         }
         // If MAC was NOT provided
         None => {
             let desks = get_desks(None).await?;
-            let desk = Idasen::new(desks.into_iter().next().ok_or(Error::CannotFindDevice)?).await;
+            let desk = Idasen::new(
+                desks
+                    .into_iter()
+                    .next()
+                    .ok_or(Error::CannotFindDevice)?
+                    .perp,
+            )
+            .await;
             desk
         }
     };

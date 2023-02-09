@@ -2,7 +2,7 @@ pub use btleplug::api::Peripheral as Device;
 use btleplug::api::{
     BDAddr, Central, Characteristic, Manager as _, ParseBDAddrError, ScanFilter, WriteType,
 };
-use btleplug::platform::{Adapter, Manager};
+use btleplug::platform::{Adapter, Manager, Peripheral};
 use indicatif::ProgressBar;
 use std::time::Duration;
 use std::{
@@ -84,7 +84,12 @@ pub enum Error {
     BtlePlugError(#[from] btleplug::Error),
 }
 
-pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<impl Device>, Error> {
+pub struct ExpandedDesk {
+    pub perp: Peripheral,
+    pub name: String,
+}
+
+pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedDesk>, Error> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
     let mut jobs = Vec::new();
@@ -109,7 +114,7 @@ pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<impl Device>, Err
 async fn search_adapter_for_desks(
     adapter: Adapter,
     name: Option<String>,
-) -> Result<Vec<impl Device>, Error> {
+) -> Result<Vec<ExpandedDesk>, Error> {
     adapter.start_scan(ScanFilter::default()).await?;
     tokio::time::sleep(Duration::from_secs(2)).await;
 
@@ -123,13 +128,16 @@ async fn search_adapter_for_desks(
                     println!("y: {}", y);
 
                     // some devices might not have a local name
-                    let name = props.local_name.unwrap_or("".to_string());
+                    let name = props.local_name.clone().unwrap_or("".to_string());
 
                     device_name == &name
                 }
                 None => props.local_name.iter().any(|name| name.contains("Desk")),
             } {
-                desks.push(peripheral);
+                desks.push(ExpandedDesk {
+                    perp: peripheral,
+                    name: props.local_name.unwrap_or("".to_string()),
+                }); //ere
             }
         }
     }

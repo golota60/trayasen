@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
+import SetupPage from "./SetupPage";
 import ManagePositionsPage from "./ManagePositionsPage";
 
 const PageContent = () => {
@@ -10,7 +11,8 @@ const PageContent = () => {
 
   // Do not rely on router for simplicity
   if (path === "/about") {
-    return <AboutPage />;
+    return <SetupPage />;
+    // return <AboutPage />;
   }
 
   if (path === "/new-position") {

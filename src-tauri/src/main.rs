@@ -39,17 +39,18 @@ fn main() {
 
     println!("Loaded config: {:?}", config);
 
-    let mac_address = &config.mac_address;
+    let local_name = &config.local_name;
 
-    let desk = rt
-        .block_on(local_idasen::get_universal_instance(&mac_address))
+    let power_desk = rt
+        .block_on(local_idasen::get_universal_instance(&local_name))
         .expect("Error while unwrapping local idasen instance");
+    let desk = power_desk.actual_idasen;
 
     // Save the desk's MAC address, if not present
-    if mac_address.is_none() {
-        let new_mac_address = desk.mac_addr;
+    if local_name.is_none() {
+        let new_local_name = power_desk.local_name;
         // println!("{:?}", desk);
-        config_utils::save_mac_address(new_mac_address);
+        config_utils::save_local_name(new_local_name);
     }
 
     let tray = config_utils::create_main_tray_menu(&config);
@@ -60,7 +61,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             create_new_elem,
             config_utils::get_config,
-            config_utils::remove_position
+            config_utils::remove_position,
+            // local_idasen::get_test
         ])
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {

@@ -2,7 +2,7 @@ pub use btleplug::api::Peripheral as Device;
 use btleplug::api::{
     BDAddr, Central, Characteristic, Manager as _, ParseBDAddrError, ScanFilter, WriteType,
 };
-use btleplug::platform::{Adapter, Manager};
+use btleplug::platform::{Adapter, Manager, Peripheral};
 use indicatif::ProgressBar;
 use std::time::Duration;
 use std::{
@@ -84,22 +84,24 @@ pub enum Error {
     BtlePlugError(#[from] btleplug::Error),
 }
 
-pub async fn get_desks(mac: Option<BDAddr>) -> Result<Vec<impl Device>, Error> {
+pub struct ExpandedDesk {
+    pub perp: Peripheral,
+    pub name: String,
+}
+
+pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedDesk>, Error> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
     let mut jobs = Vec::new();
+    // let loc_clonse =
 
     for adapter in adapters {
-        jobs.push(tokio::spawn(async move {
-            search_adapter_for_desks(adapter, mac).await
-        }));
+        jobs.push(search_adapter_for_desks(adapter, loc_name.clone()).await);
     }
 
     let mut desks = Vec::new();
     for job in jobs {
-        if let Ok(Ok(mut job_desks)) = job.await {
-            desks.append(&mut job_desks)
-        }
+        desks.append(&mut job.unwrap());
     }
 
     if desks.is_empty() {
@@ -111,19 +113,31 @@ pub async fn get_desks(mac: Option<BDAddr>) -> Result<Vec<impl Device>, Error> {
 
 async fn search_adapter_for_desks(
     adapter: Adapter,
-    mac: Option<BDAddr>,
-) -> Result<Vec<impl Device>, Error> {
+    name: Option<String>,
+) -> Result<Vec<ExpandedDesk>, Error> {
     adapter.start_scan(ScanFilter::default()).await?;
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     let mut desks = Vec::new();
     for peripheral in adapter.peripherals().await? {
         if let Some(props) = peripheral.properties().await? {
-            if match mac {
-                Some(mac) => props.address == mac,
+            if match name {
+                Some(ref device_name) => {
+                    // WE MATCHING BY NAME IN THIS MF CAUSE MACOS DOESNT GIVE US MAC ADDRESS - IM ON MY FUCK MACOS ARC
+                    let y = props.address;
+                    println!("y: {}", y);
+
+                    // some devices might not have a local name
+                    let name = props.local_name.clone().unwrap_or("".to_string());
+
+                    device_name == &name
+                }
                 None => props.local_name.iter().any(|name| name.contains("Desk")),
             } {
-                desks.push(peripheral);
+                desks.push(ExpandedDesk {
+                    perp: peripheral,
+                    name: props.local_name.unwrap_or("".to_string()),
+                }); //ere
             }
         }
     }
@@ -167,7 +181,7 @@ where
     T: Device,
 {
     pub mac_addr: BDAddr,
-    desk: T,
+    pub desk: T,
     control_characteristic: Characteristic,
     position_characteristic: Characteristic,
 }

@@ -6,7 +6,7 @@ import removeIcon from "./assets/cross.svg";
 import { appWindow } from "@tauri-apps/api/window";
 
 interface Config {
-  mac_address: string;
+  local_name: string;
   saved_positions: Array<{ name: string; value: number }>;
 }
 

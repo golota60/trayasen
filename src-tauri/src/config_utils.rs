@@ -25,7 +25,7 @@ pub struct Position {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ConfigData {
-    pub mac_address: Option<String>,
+    pub local_name: Option<String>,
     pub saved_positions: Vec<Position>,
 }
 
@@ -64,7 +64,8 @@ pub fn get_or_create_config() -> ConfigData {
         // Check for different errors?
         Err(_) => {
             let new_config = ConfigData {
-                mac_address: None,
+                local_name: None,
+
                 saved_positions: vec![],
             };
             let stringified_config = to_string::<ConfigData>(&new_config).unwrap();
@@ -86,14 +87,14 @@ pub fn get_or_create_config() -> ConfigData {
 }
 
 // Generally this function should never error, cause all the same operations have been done miliseconds before.
-pub fn save_mac_address(new_mac_address: BDAddr) {
+pub fn save_local_name(new_local_name: String) {
     let config_path = get_config_path().trim_end().to_string();
     let old_conf_file =
         read_to_string(&config_path.to_string()).expect("Opening a config to save MAC Address");
     let mut mut_conf_file =
         from_str::<ConfigData>(&old_conf_file).expect("Parsing a config to save MAC Address");
 
-    mut_conf_file.mac_address = Some(new_mac_address.to_string());
+    mut_conf_file.local_name = Some(new_local_name.to_string());
 
     let stringified_new_config = to_string::<ConfigData>(&mut_conf_file).unwrap();
     fs::write(config_path, stringified_new_config)

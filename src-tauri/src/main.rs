@@ -3,6 +3,8 @@
     windows_subsystem = "windows"
 )]
 
+use std::error::Error;
+
 use tauri::{Manager, SystemTray, SystemTrayEvent};
 
 mod broken_idasen;
@@ -58,12 +60,25 @@ fn main() {
 
     tauri::Builder::default()
         .system_tray(tray)
+        .setup(move |app| {
+            // Immidiately close the window if user has done the initialization
+            let is_init_done = config.saved_positions.len() > 0;
+
+            if is_init_done {
+                let win = app
+                    .get_window("main")
+                    .expect("Error while getting main window window on init");
+                win.close().expect("Error while closing the window");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             create_new_elem,
             config_utils::get_config,
             config_utils::remove_position,
             // local_idasen::get_test
         ])
+        .enable_macos_default_menu(false)
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 config_utils::QUIT_ID => {
@@ -139,17 +154,6 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(move |_app_handle, event| match event {
-            tauri::RunEvent::Ready => {
-                // Immidiately close the window if user has done the initialization
-                let is_init_done = config.saved_positions.len() > 0;
-
-                if is_init_done {
-                    let win = _app_handle
-                        .get_window("main")
-                        .expect("Error while getting main window window on init");
-                    win.close().expect("Error while closing the window");
-                }
-            }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
                 let config = config_utils::get_config();

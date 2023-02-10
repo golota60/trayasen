@@ -11,8 +11,8 @@ const PageContent = () => {
 
   // Do not rely on router for simplicity
   if (path === "/about") {
-    return <SetupPage />;
-    // return <AboutPage />;
+    // return <SetupPage />;
+    return <AboutPage />;
   }
 
   if (path === "/new-position") {

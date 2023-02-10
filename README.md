@@ -38,6 +38,7 @@ overall bugs:
 - [x] clicking on newly added element
 - [ ] manually stopping a moving desk deadlocks the app
 - [ ] opening a new window while the other is already open
+- [ ] manage positions -> new position doesnt work
 
 macos bugs:
 

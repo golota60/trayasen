@@ -4,6 +4,7 @@ use btleplug::api::{
 };
 use btleplug::platform::{Adapter, Manager, Peripheral};
 use indicatif::ProgressBar;
+use std::thread::sleep;
 use std::time::Duration;
 use std::{
     cmp::{max, Ordering},
@@ -270,6 +271,7 @@ impl<T: Device> Idasen<T> {
         target_position: u16,
         progress: Option<ProgressBar>,
     ) -> Result<(), Error> {
+        println!("starting moving to target");
         if !(MIN_HEIGHT..=MAX_HEIGHT).contains(&target_position) {
             return Err(Error::PositionNotInRange);
         }
@@ -279,6 +281,7 @@ impl<T: Device> Idasen<T> {
         let mut last_position_read_at = Instant::now();
         let target_position = target_position as i16;
         while !position_reached {
+            sleep(Duration::from_millis(200));
             let current_position = self.position().await? as i16;
             let going_up = match target_position.cmp(&current_position) {
                 Ordering::Greater => true,
@@ -286,20 +289,23 @@ impl<T: Device> Idasen<T> {
                 Ordering::Equal => return Ok(()),
             };
             let remaining_distance = (target_position - current_position).abs();
-            let elapsed_millis = last_position_read_at.elapsed().as_millis();
-            let moved_height = (last_position - current_position).abs();
+            // let elapsed_millis = last_position_read_at.elapsed().as_millis();
+            // let moved_height = (last_position - current_position).abs();
+
+            println!("lastpos: {}, lastposreadat: {:?}, rem_dist: {}", last_position, last_position_read_at, remaining_distance);
 
             // Tenth of millimetres per second
-            let speed = ((moved_height as f64 / elapsed_millis as f64) * 1000f64) as i16;
+            // let speed = ((moved_height as f64 / elapsed_millis as f64) * 1000f64) as i16;
 
-            if let Some(ref progress) = progress {
-                progress.inc(speed as u64);
-                let position_cm = current_position as f32 / 100.0;
-                progress.set_message(format!("{}", position_cm));
-            }
+            // if let Some(ref progress) = progress {
+            //     progress.inc(speed as u64);
+            //     let position_cm = current_position as f32 / 100.0;
+            //     progress.set_message(format!("{}", position_cm));
+            // }
 
-            if remaining_distance <= 10 {
-                // Millimetre or less is good enough.
+            // If under/over 1cm we call it a day. From my testing it's under <3mm always(sometimes it might fuck up and do like 8mm but fuck it)
+            if remaining_distance <= 100 {
+                println!("position reached!");
                 position_reached = true;
                 self.stop().await?;
             } else if going_up {
@@ -312,18 +318,18 @@ impl<T: Device> Idasen<T> {
             // * less than 5 millimetres, or:
             // * less than half a second from target
             // then we need to stop every iteration so that we don't overshoot
-            if remaining_distance < max(speed / 2, 50) {
-                self.stop().await?;
-            }
+            // if remaining_distance < max(speed / 2, 50) {
+            //     self.stop().await?;
+            // }
 
             // Read last_position again to avoid weird speed readings when switching direction
-            last_position = self.position().await? as i16;
-            last_position_read_at = Instant::now();
+            // last_position = self.position().await? as i16;
+            // last_position_read_at = Instant::now();
         }
 
-        if let Some(progress) = progress {
-            progress.finish();
-        }
+        // if let Some(progress) = progress {
+        //     progress.finish();
+        // }
 
         Ok(())
     }

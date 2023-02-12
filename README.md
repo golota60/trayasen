@@ -36,7 +36,7 @@ From my experience, in order to connect to the desk I had to first connect the d
 
 ### MacOS
 
-Desk should NOT be connected to the system while opening the app. This is a weird quirk of MacOS that I'll look into fixing in the future
+Desk should NOT be connected to the system while opening the app. This is a weird quirk of MacOS that I'll look into fixing in the future. Also, since I'm not a signed Apple developer, you might get a prompt saying that the app can be opened - [here's how to bypass that](https://support.apple.com/en-us/HT202491).
 
 ### Linux
 

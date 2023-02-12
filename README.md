@@ -3,7 +3,7 @@
 </p>
 
 <div align="center">
-<img src="https://github.com/golota60/idasen-tray/blob/master/public/carrot.png" width="200">
+<img src="https://github.com/golota60/idasen-tray-controller/blob/master/public/carrot.png" width="200">
 	<h1>Idasen controller</h1>
 	<p>
 		<b>🥕 A cross-platform background tray app for controlling your IKEA Idasen desk 🥕</b>
@@ -13,7 +13,7 @@
 
 Linux             |  MacOS   | Windows
 :-------------------------:|:-------------------------:|:-------------------------:
-![](https://github.com/golota60/idasen-tray/blob/master/linux-demo.png)  |  ![](https://github.com/golota60/idasen-tray/blob/master/macos-demo.png)   |   ![](https://github.com/golota60/idasen-tray/blob/master/win-demo.png)
+![](https://github.com/golota60/idasen-tray-controller/blob/master/linux-demo.png)  |  ![](https://github.com/golota60/idasen-tray-controller/blob/master/macos-demo.png)   |   ![](https://github.com/golota60/idasen-tray-controller/blob/master/win-demo.png)
 
 <br>
 

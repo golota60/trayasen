@@ -82,6 +82,7 @@ Roadmap(w/o order):
 - [ ] Display a setup screen instead of automatic connection for better UX
 - [ ] Allow for config reset from inside the app
 - [ ] Add options(TBD which ones)
+- [ ] Automatic update prompts
 
 Known issues:
 

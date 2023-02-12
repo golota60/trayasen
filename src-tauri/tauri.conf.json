@@ -6,8 +6,8 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "idasen-tray-webview",
-    "version": "0.0.0"
+    "productName": "idasen-tray-controller",
+    "version": "0.0.1"
   },
   "tauri": {
     "allowlist": {

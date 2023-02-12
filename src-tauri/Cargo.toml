@@ -1,9 +1,9 @@
 [package]
-name = "idasen-tray-webview"
+name = "idasen-tray-controller"
 version = "0.0.0"
-description = "A Tauri App"
+description = "An app to control IKEA Idasen desk"
 authors = ["you"]
-license = ""
+license = "MIT"
 repository = ""
 edition = "2021"
 rust-version = "1.57"

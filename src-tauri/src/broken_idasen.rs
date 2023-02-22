@@ -85,12 +85,12 @@ pub enum Error {
     BtlePlugError(#[from] btleplug::Error),
 }
 
-pub struct ExpandedDesk {
+pub struct ExpandedPeripheral {
     pub perp: Peripheral,
     pub name: String,
 }
 
-pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedDesk>, Error> {
+pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeripheral>, Error> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
     let mut jobs = Vec::new();
@@ -115,7 +115,7 @@ pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedDesk>, Er
 async fn search_adapter_for_desks(
     adapter: Adapter,
     name: Option<String>,
-) -> Result<Vec<ExpandedDesk>, Error> {
+) -> Result<Vec<ExpandedPeripheral>, Error> {
     adapter.start_scan(ScanFilter::default()).await?;
     tokio::time::sleep(Duration::from_secs(2)).await;
 
@@ -135,7 +135,7 @@ async fn search_adapter_for_desks(
                 }
                 None => props.local_name.iter().any(|name| name.contains("Desk")),
             } {
-                desks.push(ExpandedDesk {
+                desks.push(ExpandedPeripheral {
                     perp: peripheral,
                     name: props.local_name.unwrap_or("".to_string()),
                 }); //ere

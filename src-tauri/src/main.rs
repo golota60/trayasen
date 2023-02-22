@@ -5,6 +5,7 @@
 
 use std::error::Error;
 
+use btleplug::api::Peripheral;
 use tauri::{Manager, SystemTray, SystemTrayEvent};
 
 mod broken_idasen;
@@ -44,16 +45,16 @@ fn main() {
     let local_name = &config.local_name;
 
     let power_desk = rt
-        .block_on(local_idasen::get_universal_instance(&local_name))
-        .expect("Error while unwrapping local idasen instance");
-    let desk = power_desk.actual_idasen;
+        .block_on(local_idasen::get_list_of_desks(&local_name));
+        // .expect("Error while unwrapping local idasen instance");
+    let desk_perp: Option<broken_idasen::ExpandedPeripheral> = None;//power_desk.actual_idasen;
 
-    // Save the desk's MAC address, if not present
-    if local_name.is_none() {
-        let new_local_name = power_desk.local_name;
-        // println!("{:?}", desk);
-        config_utils::save_local_name(new_local_name);
-    }
+    // Save the desk's name if not present
+    // if local_name.is_none() {
+    //     let new_local_name = power_desk.local_name;
+    //     // println!("{:?}", desk);
+    //     config_utils::save_local_name(new_local_name);
+    // }
 
     let tray = config_utils::create_main_tray_menu(&config);
     let tray = SystemTray::new().with_menu(tray);
@@ -144,7 +145,7 @@ fn main() {
                             found_elem.name, found_elem.value
                         );
                         let target_height = found_elem.value;
-                        desk.move_to(target_height).await
+                        desk_perp.unwrap().move_to(target_height).await
                     })
                     .unwrap();
                 }

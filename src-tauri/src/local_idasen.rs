@@ -2,20 +2,7 @@ use btleplug::api::{BDAddr, Peripheral, PeripheralProperties};
 
 use crate::broken_idasen::{self, get_desks, Device, Error, Idasen};
 
-// #[tauri::command]
-// pub async fn get_test() -> Vec<PeripheralProperties> {
-//     let desks = get_desks(None).await.expect("asd");
-
-//     let mut x: Vec<String> = vec![];
-
-//     for y in desks {
-//         let z = y.properties().await.expect("error:lol").unwrap();
-
-//         x.push(z.to_string());
-//     }
-// }
-
-pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<broken_idasen::ExpandedDesk> {
+pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<broken_idasen::ExpandedPeripheral> {
     let desks = match loc_name {
         // If local name was provided
         Some(loc_name) => {

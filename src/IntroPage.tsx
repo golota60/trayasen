@@ -10,6 +10,8 @@ const IntroPage = () => {
         This app will help you to interact with your IKEA Idasen Desk from the
         system tray.
       </p>
+      <p>Start by connecting your desk</p>
+
       <p>Start by adding a new postition!</p>
       <a href="/new-position">
         <Button className="mt-3">Add a new position!</Button>

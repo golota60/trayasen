@@ -1,7 +1,16 @@
-import React, { useState } from "react";
+import { invoke } from "@tauri-apps/api";
+import React, { useMemo, useState } from "react";
+import useSimpleAsync from "use-simple-async";
 import Button from "./generic/Button";
 
+
+async function getDeskNames()  {
+  return await invoke("get_avail_desks") as string[];
+}
+
 const IntroPage = () => {
+  const [data] = useSimpleAsync(getDeskNames);
+
   return (
     <div className="w-full h-full flex flex-col justify-center items-center bg-slate-800">
       <img src="/carrot.png" alt="A carrot logo" />
@@ -11,6 +20,7 @@ const IntroPage = () => {
         system tray.
       </p>
       <p>Start by connecting your desk</p>
+      {data?.map(e => <li>{e}</li>)}
 
       <p>Start by adding a new postition!</p>
       <a href="/new-position">

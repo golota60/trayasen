@@ -6,6 +6,7 @@
   --secondary: rgb(73, 73, 73);
   scrollbar-width: thin;
   scrollbar-color: var(--secondary) var(--primary);
+  box-sizing: content-box;
 }
 
 /* Chrome, Edge, and Safari */
@@ -38,4 +39,35 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+@keyframes spinning {
+  from {
+    transform: rotate(0deg)
+  }
+
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+.spinner {
+  padding: 6px;
+  animation-name: spinning;
+  animation-duration: 2s;
+  animation-iteration-count: infinite;
+}
+
+.spinner-sm {
+  width: 1.5rem;
+}
+
+
+.spinner-md {
+  width: 2.5rem;
+}
+
+
+.spinner-lg {
+  width: 3.5rem;
 }

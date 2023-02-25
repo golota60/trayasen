@@ -1,3 +1,9 @@
+use std::{
+    cmp::Ordering,
+    thread::sleep,
+    time::{Duration, Instant},
+};
+
 use btleplug::api::{BDAddr, Characteristic, ParseBDAddrError, Peripheral, WriteType};
 use uuid::Uuid;
 
@@ -19,6 +25,29 @@ const STOP: [u8; 2] = [0xFF, 0x00];
 
 pub const MIN_HEIGHT: u16 = 6200;
 pub const MAX_HEIGHT: u16 = 12700;
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct PositionSpeed {
+    // tenth mm
+    pub position: u16,
+    // unknown
+    pub speed: i16,
+}
+
+/// convert desk response from bytes to tenth of millimeters and a speed of unknown dimension
+///
+/// ```
+/// assert_eq!(idasen::bytes_to_position_speed(&[0x64, 0x19, 0x00, 0x00]), idasen::PositionSpeed{ position: idasen::MAX_HEIGHT, speed: 0 });
+/// assert_eq!(idasen::bytes_to_position_speed(&[0x00, 0x00, 0x00, 0x00]), idasen::PositionSpeed{ position: idasen::MIN_HEIGHT, speed: 0 });
+/// assert_eq!(idasen::bytes_to_position_speed(&[0x51, 0x04, 0x00, 0x00]), idasen::PositionSpeed{ position: 7305, speed: 0 });
+/// assert_eq!(idasen::bytes_to_position_speed(&[0x08, 0x08, 0x00, 0x00]), idasen::PositionSpeed{ position: 8256, speed: 0 });
+/// assert_eq!(idasen::bytes_to_position_speed(&[0x64, 0x18, 0x00, 0x00]), idasen::PositionSpeed{ position: 12444, speed: 0 });
+/// ```
+pub fn bytes_to_position_speed(bytes: &[u8]) -> PositionSpeed {
+    let position = u16::from_le_bytes([bytes[0], bytes[1]]) + MIN_HEIGHT;
+    let speed = i16::from_le_bytes([bytes[2], bytes[3]]);
+    PositionSpeed { position, speed }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -83,7 +112,9 @@ pub async fn setup(desk: &impl Peripheral) -> Result<Bruhdasen<impl Peripheral>,
     })
 }
 
-pub async fn get_post_chars(desk: &impl Peripheral) -> Characteristic {
+/// Some would say that getting characteristics every time is wasteful - we're doing it anyways
+/// TODO: Try to refactor this - maybe chuck this into shared tauri state?
+pub async fn get_control_characteristic(desk: &impl Peripheral) -> Characteristic {
     desk.characteristics()
         .iter()
         .find(|c| c.uuid == CONTROL_UUID)
@@ -91,93 +122,93 @@ pub async fn get_post_chars(desk: &impl Peripheral) -> Characteristic {
         .expect("err while getting characteristic")
         .clone()
 }
+/// Some would say that getting characteristics every time is wasteful - we're doing it anyways
+/// TODO: Try to refactor this - maybe chuck this into shared tauri state?
+pub async fn get_position_characteristic(desk: &impl Peripheral) -> Characteristic {
+    desk.characteristics()
+        .iter()
+        .find(|c| c.uuid == POSITION_UUID)
+        .ok_or_else(|| Error::CharacteristicsNotFound("Position".to_string()))
+        .expect("Error while getting position characteristic")
+        .clone()
+}
 
 /// Move desk up.
 pub async fn up(desk: &impl Peripheral) -> btleplug::Result<()> {
-    let control_characteristic = get_post_chars(desk).await;
+    let control_characteristic = get_control_characteristic(desk).await;
 
     desk.write(&control_characteristic, &UP, WriteType::WithoutResponse)
         .await
 }
 
-// /// Lower the desk's position.
-// pub async fn down(&self) -> btleplug::Result<()> {
-//     self.desk
-//         .write(
-//             &self.control_characteristic,
-//             &DOWN,
-//             WriteType::WithoutResponse,
-//         )
-//         .await
-// }
+/// Lower the desk's position.
+pub async fn down(desk: &impl Peripheral) -> btleplug::Result<()> {
+    let control_characteristic = get_control_characteristic(desk).await;
+    desk.write(&control_characteristic, &DOWN, WriteType::WithoutResponse)
+        .await
+}
 
-// /// Stop desk from moving.
-// pub async fn stop(&self) -> btleplug::Result<()> {
-//     self.desk
-//         .write(
-//             &self.control_characteristic,
-//             &STOP,
-//             WriteType::WithoutResponse,
-//         )
-//         .await
-// }
+/// Stop desk from moving.
+pub async fn stop(desk: &impl Peripheral) -> btleplug::Result<()> {
+    let control_characteristic = get_control_characteristic(desk).await;
+    desk.write(&control_characteristic, &STOP, WriteType::WithoutResponse)
+        .await
+}
 
-// /// Move desk to a desired position. The precision is decent, usually less than 1mm off.
-// pub async fn move_to(&self, target_position: u16) -> Result<(), Error> {
-//     self.move_to_target(target_position, None).await
-// }
+/// Move desk to a desired position. The precision is decent, usually less than 1mm off.
+pub async fn move_to(desk: &impl Peripheral, target_position: u16) -> Result<(), Error> {
+    move_to_target(desk, target_position).await
+}
 
-// async fn move_to_target(
-//     &self,
-//     target_position: u16,
-//     progress: Option<ProgressBar>,
-// ) -> Result<(), Error> {
-//     println!("starting moving to target");
-//     if !(MIN_HEIGHT..=MAX_HEIGHT).contains(&target_position) {
-//         return Err(Error::PositionNotInRange);
-//     }
+async fn move_to_target(desk: &impl Peripheral, target_position: u16) -> Result<(), Error> {
+    println!("starting moving to target");
+    if !(MIN_HEIGHT..=MAX_HEIGHT).contains(&target_position) {
+        return Err(Error::PositionNotInRange);
+    }
 
-//     let mut position_reached = false;
-//     let last_position = self.position().await? as i16;
-//     let last_position_read_at = Instant::now();
-//     let target_position = target_position as i16;
-//     while !position_reached {
-//         sleep(Duration::from_millis(200));
-//         let current_position = self.position().await? as i16;
-//         let going_up = match target_position.cmp(&current_position) {
-//             Ordering::Greater => true,
-//             Ordering::Less => false,
-//             Ordering::Equal => return Ok(()),
-//         };
-//         let remaining_distance = (target_position - current_position).abs();
+    let mut position_reached = false;
+    let last_position = position(desk).await? as i16;
+    let last_position_read_at = Instant::now();
+    let target_position = target_position as i16;
+    while !position_reached {
+        sleep(Duration::from_millis(200));
+        let current_position = position(desk).await? as i16;
+        let going_up = match target_position.cmp(&current_position) {
+            Ordering::Greater => true,
+            Ordering::Less => false,
+            Ordering::Equal => return Ok(()),
+        };
+        let remaining_distance = (target_position - current_position).abs();
 
-//         println!(
-//             "lastpos: {}, lastposreadat: {:?}, rem_dist: {}",
-//             last_position, last_position_read_at, remaining_distance
-//         );
+        println!(
+            "lastpos: {}, lastposreadat: {:?}, rem_dist: {}",
+            last_position, last_position_read_at, remaining_distance
+        );
 
-//         // If under/over 1cm we call it a day. From my testing it's under <3mm always(sometimes it might fuck up and do like 8mm but fuck it)
-//         if remaining_distance <= 100 {
-//             println!("position reached!");
-//             position_reached = true;
-//             self.stop().await?;
-//         } else if going_up {
-//             self.up().await?;
-//         } else if !going_up {
-//             self.down().await?;
-//         }
-//     }
+        // If under/over 1cm we call it a day. From my testing it's under <3mm always(sometimes it might fuck up and do like 8mm but fuck it)
+        if remaining_distance <= 100 {
+            println!("position reached!");
+            position_reached = true;
+            stop(desk).await?;
+        } else if going_up {
+            up(desk).await?;
+        } else if !going_up {
+            down(desk).await?;
+        }
+    }
 
-//     Ok(())
-// }
+    Ok(())
+}
 
-// /// Return the desk height in tenth millimeters (1m = 10000)
-// pub async fn position(&self) -> Result<u16, Error> {
-//     Ok(self.position_and_speed().await?.position)
-// }
+/// Return the desk height in tenth millimeters (1m = 10000)
+pub async fn position(desk: &impl Peripheral) -> Result<u16, Error> {
+    Ok(position_and_speed(desk).await?.position)
+}
 
-// /// Return the denk height in tenth millimeters and speed in unknown dimension
-// pub async fn position_and_speed(&self) -> Result<PositionSpeed, Error> {
-//     let value = self.desk.read(&self.position_characteristic).await?;
-//     Ok(bytes_to_position_speed(&value))
-// }
+/// Return the denk height in tenth millimeters and speed in unknown dimension
+pub async fn position_and_speed(desk: &impl Peripheral) -> Result<PositionSpeed, Error> {
+    let position_characteristic = get_position_characteristic(desk).await;
+
+    let value = desk.read(&position_characteristic).await?;
+    Ok(bytes_to_position_speed(&value))
+}

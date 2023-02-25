@@ -90,39 +90,30 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
 
     println!("{:?}", &desk_list_view);
 
-    let x = desk_list.first();
-    let pot = &x.expect("asd").perp;
+    // let x = desk_list.first();
+    // let pot = &x.expect("asd").perp;
 
-    loose_idasen::setup(pot).await;
+    // loose_idasen::setup(pot).await;
 
-    loose_idasen::up(pot).await;
+    // loose_idasen::up(pot).await;
 
     Ok(desk_list_view)
-
-    // let ret = match config.local_name {
-    //     Some(_) => Ok(vec![PotentialDesk {
-    //         name: desk.to_owned(),
-    //         status: SavedDeskStates::New.as_str().to_string(),
-    //     }]),
-    //     None => Ok(PotentialDesk {
-    //         name: desk.to_owned(),
-    //         status: SavedDeskStates::Saved.as_str().to_string(),
-    //     }),
-    // };
-    // ret
 }
 
-/// Provided a name, will connect to a desk with this name
+/// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
 async fn connect_to_desk_by_name(
     name: String,
     state: tauri::State<'_, SharedState<impl btleplug::api::Peripheral>>,
 ) -> () {
-    let pow_idasen = local_idasen::get_universal_instance(&Some(name))
+    let desk_to_connect = local_idasen::get_list_of_desks(&Some(name.clone()))
         .await
-        .expect("Error");
+        .first()
+        .expect("Error while getting a desk to connect to")
+        .perp
+        .clone();
 
-    // state.desk = Some(pow_idasen.actual_idasen);
+    loose_idasen::setup(&desk_to_connect).await;
 }
 
 fn main() {

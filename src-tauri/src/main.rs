@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use std::error::Error;
+use std::{any::Any, error::Error};
 
 use btleplug::api::Peripheral;
 use serde::Serialize;
@@ -12,6 +12,16 @@ use tauri::{Manager, SystemTray, SystemTrayEvent};
 mod broken_idasen;
 mod config_utils;
 mod local_idasen;
+mod loose_idasen;
+
+struct SharedState<T>
+where
+    T: Peripheral,
+{
+    name: Option<String>,
+    // longshot that it works but lets try
+    desk: Option<broken_idasen::Idasen<T>>,
+}
 
 #[tauri::command]
 fn create_new_elem(name: &str, value: u16) -> String {
@@ -64,7 +74,7 @@ struct PotentialDesk {
 async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
     let config = config_utils::get_or_create_config();
     let desk_list = local_idasen::get_list_of_desks(&config.local_name).await;
-    let desk_list = desk_list
+    let desk_list_view = desk_list
         .iter()
         .map(|x| match config.local_name {
             Some(_) => PotentialDesk {
@@ -78,9 +88,16 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
         })
         .collect::<Vec<PotentialDesk>>();
 
-    println!("{:?}", &desk_list);
+    println!("{:?}", &desk_list_view);
 
-    Ok(desk_list)
+    let x = desk_list.first();
+    let pot = &x.expect("asd").perp;
+
+    loose_idasen::setup(pot).await;
+
+    loose_idasen::up(pot).await;
+
+    Ok(desk_list_view)
 
     // let ret = match config.local_name {
     //     Some(_) => Ok(vec![PotentialDesk {
@@ -97,7 +114,16 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
 
 /// Provided a name, will connect to a desk with this name
 #[tauri::command]
-fn connect_to_desk_by_name(name: &str) -> () {}
+async fn connect_to_desk_by_name(
+    name: String,
+    state: tauri::State<'_, SharedState<impl btleplug::api::Peripheral>>,
+) -> () {
+    let pow_idasen = local_idasen::get_universal_instance(&Some(name))
+        .await
+        .expect("Error");
+
+    // state.desk = Some(pow_idasen.actual_idasen);
+}
 
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");

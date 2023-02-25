@@ -2,7 +2,9 @@ use btleplug::api::{BDAddr, Peripheral, PeripheralProperties};
 
 use crate::broken_idasen::{self, get_desks, Device, Error, Idasen};
 
-pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<broken_idasen::ExpandedPeripheral> {
+pub async fn get_list_of_desks(
+    loc_name: &Option<String>,
+) -> Vec<broken_idasen::ExpandedPeripheral> {
     let desks = match loc_name {
         // If local name was provided
         Some(loc_name) => {

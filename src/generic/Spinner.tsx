@@ -14,7 +14,7 @@ const getSize = (size: Props['size']) => {
 }
 
 const Spinner = ({ size = 'sm' }: Props) => {
-    return <img className={`animate-[spin_1s_linear_infinite] ${getSize(size)}`} src="/carrot.png" alt="A carrot logo" />;
+    return <img className={`animate-[spin_1.5s_linear_infinite] ${getSize(size)}`} src="/carrot.png" alt="A carrot logo" />;
 }
 
 export default Spinner;

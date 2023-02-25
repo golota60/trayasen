@@ -1,18 +1,26 @@
 import { invoke } from "@tauri-apps/api";
 import React, { useMemo, useState } from "react";
 import useSimpleAsync from "use-simple-async";
+import DeskElement from "./DeskElement";
 import Button from "./generic/Button";
 import Spinner from "./generic/Spinner";
 
+interface ConnectionDesk {
+  name: string;
+  status: "new" | 'saved';
+}
 
-async function getDeskNames() {
-  return await invoke("get_avail_desks") as string[];
+async function getConnectionDesk() {
+  return await invoke("get_desk_to_connect") as Array<ConnectionDesk>;
 }
 
 const IntroPage = () => {
-  const [data, { error, loading }] = useSimpleAsync(getDeskNames);
+  const [data, { error, loading }] = useSimpleAsync(getConnectionDesk, { useLayout: true });
 
-  console.log(data, loading)
+  // workaround for checking whether the desk is saved. TODO: make this nicer
+  // If it's saved, it's going to be only 1 element
+  const isSaved = data?.[0].status === 'saved';
+
   if (loading) {
     return <div><Spinner size="lg" />Loading...</div>
   }
@@ -30,7 +38,10 @@ const IntroPage = () => {
         system tray.
       </p>
       <div className="flex flex-col justify-center items-center my-4">
-        <p>Connecting to saved desk: {data?.[0]}</p>
+        {isSaved ?
+          <p>Connecting to saved desk...</p> : <p>No saved desk found. Connect to one of desks listed below:</p>}
+        <div className="w-64">{data?.map(e => <DeskElement deskName={e.name} />)}</div>
+
         <Spinner size="sm" />
       </div>
       <p>Start by adding a new postition!</p>

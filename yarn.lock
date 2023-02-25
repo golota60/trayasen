@@ -1144,10 +1144,10 @@ update-browserslist-db@^1.0.10, update-browserslist-db@^1.0.9:
     escalade "^3.1.1"
     picocolors "^1.0.0"
 
-use-simple-async@^1.3.1:
-  version "1.3.1"
-  resolved "https://registry.yarnpkg.com/use-simple-async/-/use-simple-async-1.3.1.tgz#cc025592021d234aaefbb3ed92d29340f195395c"
-  integrity sha512-fUevhaQtp23c3HcjIMUkFJU/RmTPCvD7gBCPH4Y0/ZiLnS6Mju2BOcsTyhDgzsYM2B2+RJUdp07bvzqUkS/VdA==
+use-simple-async@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/use-simple-async/-/use-simple-async-1.4.0.tgz#97f067c98aaf5d9fd629be5d6efdbf652300ba8e"
+  integrity sha512-qEull4VcW56/L4a7qJ1DBPdMSYZQCc+jVEmW+Xs/KpOmy/itki8nOu++oQQOu3x2Iwqxc6ROKx6FAa+YJDwApQ==
 
 util-deprecate@^1.0.2:
   version "1.0.2"

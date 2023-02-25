@@ -6,6 +6,7 @@
 use std::error::Error;
 
 use btleplug::api::Peripheral;
+use serde::Serialize;
 use tauri::{Manager, SystemTray, SystemTrayEvent};
 
 mod broken_idasen;
@@ -35,17 +36,68 @@ fn create_new_elem(name: &str, value: u16) -> String {
     }
 }
 
-// https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
-/// Desk list of desks for frontend setup
-#[tauri::command]
-async fn get_avail_desks() -> Result<Vec<String>, ()>  {
-    let desk_list = local_idasen::get_list_of_desks(&None).await;
-    let desk_list = desk_list.iter().map(|x| x.name.to_string()).collect::<Vec<String>>();
+const ASD: &str = "asd";
 
-    println!("{:?}", desk_list);
+enum SavedDeskStates {
+    New,
+    Saved,
+}
+
+impl SavedDeskStates {
+    fn as_str(&self) -> &'static str {
+        match self {
+            SavedDeskStates::New => "new",
+            SavedDeskStates::Saved => "saved",
+        }
+    }
+}
+
+#[derive(Serialize, Debug)]
+struct PotentialDesk {
+    name: String,
+    status: String,
+}
+
+// https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
+/// Desk we're connecting to for UI info
+#[tauri::command]
+async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
+    let config = config_utils::get_or_create_config();
+    let desk_list = local_idasen::get_list_of_desks(&config.local_name).await;
+    let desk_list = desk_list
+        .iter()
+        .map(|x| match config.local_name {
+            Some(_) => PotentialDesk {
+                name: x.name.to_string(),
+                status: SavedDeskStates::New.as_str().to_string(),
+            },
+            None => PotentialDesk {
+                name: x.name.to_string(),
+                status: SavedDeskStates::Saved.as_str().to_string(),
+            },
+        })
+        .collect::<Vec<PotentialDesk>>();
+
+    println!("{:?}", &desk_list);
 
     Ok(desk_list)
+
+    // let ret = match config.local_name {
+    //     Some(_) => Ok(vec![PotentialDesk {
+    //         name: desk.to_owned(),
+    //         status: SavedDeskStates::New.as_str().to_string(),
+    //     }]),
+    //     None => Ok(PotentialDesk {
+    //         name: desk.to_owned(),
+    //         status: SavedDeskStates::Saved.as_str().to_string(),
+    //     }),
+    // };
+    // ret
 }
+
+/// Provided a name, will connect to a desk with this name
+#[tauri::command]
+fn connect_to_desk_by_name(name: &str) -> () {}
 
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");
@@ -57,11 +109,11 @@ fn main() {
     let local_name = &config.local_name;
 
     // let power_desk = rt
-        // .block_on(local_idasen::get_list_of_desks(&None));
-        // .expect("Error while unwrapping local idasen instance");
-    let desk_perp: Option<broken_idasen::ExpandedPeripheral> = None;//power_desk.actual_idasen;
+    // .block_on(local_idasen::get_list_of_desks(&None));
+    // .expect("Error while unwrapping local idasen instance");
+    let desk_perp: Option<broken_idasen::ExpandedPeripheral> = None; //power_desk.actual_idasen;
 
-    // let actual_desk: Option<local_idasen::PowerIdasen<impl Peripheral>> = 
+    // let actual_desk: Option<local_idasen::PowerIdasen<impl Peripheral>> =
 
     // Save the desk's name if not present
     // if local_name.is_none() {
@@ -91,8 +143,7 @@ fn main() {
             create_new_elem,
             config_utils::get_config,
             config_utils::remove_position,
-            get_avail_desks
-            // local_idasen::get_test
+            get_desk_to_connect // local_idasen::get_test
         ])
         .enable_macos_default_menu(false)
         .on_system_tray_event(move |app, event| match event {

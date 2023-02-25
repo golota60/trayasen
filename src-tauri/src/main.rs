@@ -5,7 +5,7 @@
 
 use std::{any::Any, error::Error};
 
-use btleplug::api::Peripheral;
+use btleplug::{api::Peripheral as ApiPeripheral, platform::Peripheral as PlatformPeripheral};
 use serde::Serialize;
 use tauri::{Manager, SystemTray, SystemTrayEvent};
 
@@ -14,13 +14,10 @@ mod config_utils;
 mod local_idasen;
 mod loose_idasen;
 
-struct SharedState<T>
-where
-    T: Peripheral,
-{
+struct SharedState {
     name: Option<String>,
-    // longshot that it works but lets try
-    desk: Option<broken_idasen::Idasen<T>>,
+    // longshot that it works but let try
+    desk: Option<PlatformPeripheral>,
 }
 
 #[tauri::command]
@@ -90,13 +87,6 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
 
     println!("{:?}", &desk_list_view);
 
-    // let x = desk_list.first();
-    // let pot = &x.expect("asd").perp;
-
-    // loose_idasen::setup(pot).await;
-
-    // loose_idasen::up(pot).await;
-
     Ok(desk_list_view)
 }
 
@@ -104,8 +94,8 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
 #[tauri::command]
 async fn connect_to_desk_by_name(
     name: String,
-    state: tauri::State<'_, SharedState<impl btleplug::api::Peripheral>>,
-) -> () {
+    // state: tauri::State<'_, SharedState<impl btleplug::api::Peripheral>>,
+) -> Result<(), ()> {
     let desk_to_connect = local_idasen::get_list_of_desks(&Some(name.clone()))
         .await
         .first()
@@ -114,6 +104,8 @@ async fn connect_to_desk_by_name(
         .clone();
 
     loose_idasen::setup(&desk_to_connect).await;
+
+    Ok(())
 }
 
 fn main() {
@@ -144,6 +136,10 @@ fn main() {
 
     tauri::Builder::default()
         .system_tray(tray)
+        .manage(SharedState {
+            name: None,
+            desk: None::<PlatformPeripheral>,
+        })
         .setup(move |app| {
             // Immidiately close the window if user has done the initialization
             let is_init_done = config.saved_positions.len() > 0;
@@ -160,7 +156,8 @@ fn main() {
             create_new_elem,
             config_utils::get_config,
             config_utils::remove_position,
-            get_desk_to_connect // local_idasen::get_test
+            get_desk_to_connect,
+            connect_to_desk_by_name
         ])
         .enable_macos_default_menu(false)
         .on_system_tray_event(move |app, event| match event {

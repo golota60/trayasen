@@ -4,7 +4,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use btleplug::api::{BDAddr, Characteristic, ParseBDAddrError, Peripheral, WriteType};
+use btleplug::api::{
+    BDAddr, Characteristic, ParseBDAddrError, Peripheral as ApiPeripheral, WriteType,
+};
 use uuid::Uuid;
 
 /*
@@ -72,7 +74,7 @@ pub enum Error {
 
 pub struct Bruhdasen<T>
 where
-    T: Peripheral,
+    T: ApiPeripheral,
 {
     pub mac_addr: BDAddr,
     pub desk: T,
@@ -81,7 +83,7 @@ where
 }
 
 /// Instantiate the struct. Requires `Device` instance. Same as Idasen::new
-pub async fn setup(desk: &impl Peripheral) -> Result<Bruhdasen<impl Peripheral>, Error> {
+pub async fn setup(desk: &impl ApiPeripheral) -> Result<Bruhdasen<impl ApiPeripheral>, Error> {
     let mac_addr = desk.address();
     desk.connect().await?;
     desk.discover_services().await?;
@@ -114,7 +116,7 @@ pub async fn setup(desk: &impl Peripheral) -> Result<Bruhdasen<impl Peripheral>,
 
 /// Some would say that getting characteristics every time is wasteful - we're doing it anyways
 /// TODO: Try to refactor this - maybe chuck this into shared tauri state?
-pub async fn get_control_characteristic(desk: &impl Peripheral) -> Characteristic {
+pub async fn get_control_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
     desk.characteristics()
         .iter()
         .find(|c| c.uuid == CONTROL_UUID)
@@ -124,7 +126,7 @@ pub async fn get_control_characteristic(desk: &impl Peripheral) -> Characteristi
 }
 /// Some would say that getting characteristics every time is wasteful - we're doing it anyways
 /// TODO: Try to refactor this - maybe chuck this into shared tauri state?
-pub async fn get_position_characteristic(desk: &impl Peripheral) -> Characteristic {
+pub async fn get_position_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
     desk.characteristics()
         .iter()
         .find(|c| c.uuid == POSITION_UUID)
@@ -134,7 +136,7 @@ pub async fn get_position_characteristic(desk: &impl Peripheral) -> Characterist
 }
 
 /// Move desk up.
-pub async fn up(desk: &impl Peripheral) -> btleplug::Result<()> {
+pub async fn up(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
     let control_characteristic = get_control_characteristic(desk).await;
 
     desk.write(&control_characteristic, &UP, WriteType::WithoutResponse)
@@ -142,25 +144,25 @@ pub async fn up(desk: &impl Peripheral) -> btleplug::Result<()> {
 }
 
 /// Lower the desk's position.
-pub async fn down(desk: &impl Peripheral) -> btleplug::Result<()> {
+pub async fn down(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
     let control_characteristic = get_control_characteristic(desk).await;
     desk.write(&control_characteristic, &DOWN, WriteType::WithoutResponse)
         .await
 }
 
 /// Stop desk from moving.
-pub async fn stop(desk: &impl Peripheral) -> btleplug::Result<()> {
+pub async fn stop(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
     let control_characteristic = get_control_characteristic(desk).await;
     desk.write(&control_characteristic, &STOP, WriteType::WithoutResponse)
         .await
 }
 
 /// Move desk to a desired position. The precision is decent, usually less than 1mm off.
-pub async fn move_to(desk: &impl Peripheral, target_position: u16) -> Result<(), Error> {
+pub async fn move_to(desk: &impl ApiPeripheral, target_position: u16) -> Result<(), Error> {
     move_to_target(desk, target_position).await
 }
 
-async fn move_to_target(desk: &impl Peripheral, target_position: u16) -> Result<(), Error> {
+async fn move_to_target(desk: &impl ApiPeripheral, target_position: u16) -> Result<(), Error> {
     println!("starting moving to target");
     if !(MIN_HEIGHT..=MAX_HEIGHT).contains(&target_position) {
         return Err(Error::PositionNotInRange);
@@ -201,12 +203,12 @@ async fn move_to_target(desk: &impl Peripheral, target_position: u16) -> Result<
 }
 
 /// Return the desk height in tenth millimeters (1m = 10000)
-pub async fn position(desk: &impl Peripheral) -> Result<u16, Error> {
+pub async fn position(desk: &impl ApiPeripheral) -> Result<u16, Error> {
     Ok(position_and_speed(desk).await?.position)
 }
 
 /// Return the denk height in tenth millimeters and speed in unknown dimension
-pub async fn position_and_speed(desk: &impl Peripheral) -> Result<PositionSpeed, Error> {
+pub async fn position_and_speed(desk: &impl ApiPeripheral) -> Result<PositionSpeed, Error> {
     let position_characteristic = get_position_characteristic(desk).await;
 
     let value = desk.read(&position_characteristic).await?;

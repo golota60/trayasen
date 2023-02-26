@@ -1,4 +1,4 @@
-use btleplug::api::{BDAddr, Peripheral, PeripheralProperties};
+use btleplug::api::Peripheral as ApiPeripheral;
 
 use crate::broken_idasen::{self, get_desks, Device, Error, Idasen};
 
@@ -24,7 +24,7 @@ pub async fn get_list_of_desks(
 
 pub struct PowerIdasen<T>
 where
-    T: Peripheral,
+    T: ApiPeripheral,
 {
     pub actual_idasen: Idasen<T>,
     pub local_name: String,

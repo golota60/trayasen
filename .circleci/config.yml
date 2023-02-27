@@ -17,7 +17,7 @@ jobs:
       - image: cimg/rust:1.67.1-node
     steps:
       - checkout
-      - run: cargo build
+      - run: yarn tauri:build
 workflows:
   build-all:
     jobs:

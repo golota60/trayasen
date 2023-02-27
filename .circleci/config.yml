@@ -19,7 +19,7 @@ jobs:
       - checkout
       - node/install-packages:
           pkg-manager: yarn
-      - run: sudo apt-get install libglib2.0-dev
+      - run: sudo apt-get install glib2.0
       - run: yarn tauri:build
 workflows:
   build-all:

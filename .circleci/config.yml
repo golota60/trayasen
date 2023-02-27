@@ -3,16 +3,16 @@ orbs:
   node: circleci/node@5.0.2
 
 jobs:
-  build-fe:
+  lint-fe:
     executor: node/default
     steps:
       - checkout
       - node/install-packages:
           pkg-manager: yarn
       - run:
-          command: yarn build
-          name: Build the FE
-  build-rust:
+          command: yarn lint
+          name: Lint JS code
+  build-tauri:
     docker:
       - image: cimg/rust:1.67.1-node
     steps:
@@ -23,5 +23,5 @@ jobs:
 workflows:
   build-all:
     jobs:
-      - build-fe
-      - build-rust
+      - lint-fe
+      - build-tauri

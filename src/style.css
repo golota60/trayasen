@@ -6,6 +6,7 @@
   --secondary: rgb(73, 73, 73);
   scrollbar-width: thin;
   scrollbar-color: var(--secondary) var(--primary);
+  box-sizing: content-box;
 }
 
 /* Chrome, Edge, and Safari */

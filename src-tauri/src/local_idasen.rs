@@ -1,21 +1,10 @@
-use btleplug::api::{BDAddr, Peripheral, PeripheralProperties};
+use btleplug::api::Peripheral as ApiPeripheral;
 
-use crate::broken_idasen::{self, get_desks, Device, Error, Idasen};
+use crate::broken_idasen::{self, get_desks, Error, Idasen};
 
-// #[tauri::command]
-// pub async fn get_test() -> Vec<PeripheralProperties> {
-//     let desks = get_desks(None).await.expect("asd");
-
-//     let mut x: Vec<String> = vec![];
-
-//     for y in desks {
-//         let z = y.properties().await.expect("error:lol").unwrap();
-
-//         x.push(z.to_string());
-//     }
-// }
-
-pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<broken_idasen::ExpandedDesk> {
+pub async fn get_list_of_desks(
+    loc_name: &Option<String>,
+) -> Vec<broken_idasen::ExpandedPeripheral> {
     let desks = match loc_name {
         // If local name was provided
         Some(loc_name) => {
@@ -35,7 +24,7 @@ pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<broken_idasen::
 
 pub struct PowerIdasen<T>
 where
-    T: Peripheral,
+    T: ApiPeripheral,
 {
     pub actual_idasen: Idasen<T>,
     pub local_name: String,
@@ -44,7 +33,7 @@ where
 /// Get the desk instance. Local name is optional - if provided, it will be used.
 pub async fn get_universal_instance(
     loc_name: &Option<String>,
-) -> Result<PowerIdasen<impl Device>, Error> {
+) -> Result<PowerIdasen<impl ApiPeripheral>, Error> {
     let desk = match loc_name {
         // If MAC was provided
         Some(loc_name) => {

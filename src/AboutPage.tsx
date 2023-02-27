@@ -1,5 +1,3 @@
-import React, { useState } from "react";
-
 const AboutPage = () => {
   return (
     <>
@@ -7,11 +5,15 @@ const AboutPage = () => {
       <h1 className="text-4xl mt-2 mb-3">About</h1>
       <p>
         This lovely little app has been created by Szymon Wiszczuk(
-        <a target="_blank" href="https://github.com/golota60">
+        <a target="_blank" href="https://github.com/golota60" rel="noreferrer">
           github
         </a>
         ,
-        <a target="_blank" href="https://twitter.com/SzymonWiszczuk">
+        <a
+          target="_blank"
+          href="https://twitter.com/SzymonWiszczuk"
+          rel="noreferrer"
+        >
           twitter
         </a>
         )
@@ -21,6 +23,7 @@ const AboutPage = () => {
         <a
           target="_blank"
           href="https://github.com/golota60/idasen-tray/issues/new"
+          rel="noreferrer"
         >
           this link
         </a>

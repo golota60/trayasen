@@ -55,18 +55,6 @@ pub enum Error {
     #[error("Cannot find the device.")]
     CannotFindDevice,
 
-    // shits unused
-    // #[error("Cannot connect to the device.")]
-    // Connectionerrored,
-
-    // #[error("Cannot scan for devices.")]
-    // Scanerrored,
-
-    // #[error("Permission denied.")]
-    // PermissionDenied,
-
-    // #[error("Cannot discover Bluetooth characteristics.")]
-    // CharacteristicsDiscoveryFailed,
     #[error("Bluetooth characteristics not found: '{}'.", _0)]
     CharacteristicsNotFound(String),
 
@@ -76,8 +64,6 @@ pub enum Error {
     #[error("Cannot subscribe to read position.")]
     CannotSubscribePosition,
 
-    // #[error("Cannot read position.")]
-    // CannotReadPosition,
     #[error("errored to parse mac address.")]
     MacAddrParseFailed(#[from] ParseBDAddrError),
 
@@ -85,12 +71,12 @@ pub enum Error {
     BtlePlugError(#[from] btleplug::Error),
 }
 
-pub struct ExpandedDesk {
+pub struct ExpandedPeripheral {
     pub perp: Peripheral,
     pub name: String,
 }
 
-pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedDesk>, Error> {
+pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeripheral>, Error> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
     let mut jobs = Vec::new();
@@ -115,7 +101,7 @@ pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedDesk>, Er
 async fn search_adapter_for_desks(
     adapter: Adapter,
     name: Option<String>,
-) -> Result<Vec<ExpandedDesk>, Error> {
+) -> Result<Vec<ExpandedPeripheral>, Error> {
     adapter.start_scan(ScanFilter::default()).await?;
     tokio::time::sleep(Duration::from_secs(2)).await;
 
@@ -135,7 +121,7 @@ async fn search_adapter_for_desks(
                 }
                 None => props.local_name.iter().any(|name| name.contains("Desk")),
             } {
-                desks.push(ExpandedDesk {
+                desks.push(ExpandedPeripheral {
                     perp: peripheral,
                     name: props.local_name.unwrap_or("".to_string()),
                 }); //ere
@@ -258,14 +244,6 @@ impl<T: Device> Idasen<T> {
         self.move_to_target(target_position, None).await
     }
 
-    // shits unused
-    // pub async fn move_to_with_progress(&self, target_position: u16) -> Result<(), Error> {
-    //     let initial_position = (target_position as i16 - self.position().await? as i16).abs();
-    //     let progress = ProgressBar::new(initial_position as u64);
-    //     progress.set_style(ProgressStyle::default_bar().template("{spinner} {wide_bar} [{msg}cm]"));
-    //     self.move_to_target(target_position, Some(progress)).await
-    // }
-
     async fn move_to_target(
         &self,
         target_position: u16,
@@ -277,8 +255,8 @@ impl<T: Device> Idasen<T> {
         }
 
         let mut position_reached = false;
-        let mut last_position = self.position().await? as i16;
-        let mut last_position_read_at = Instant::now();
+        let last_position = self.position().await? as i16;
+        let last_position_read_at = Instant::now();
         let target_position = target_position as i16;
         while !position_reached {
             sleep(Duration::from_millis(200));
@@ -289,19 +267,11 @@ impl<T: Device> Idasen<T> {
                 Ordering::Equal => return Ok(()),
             };
             let remaining_distance = (target_position - current_position).abs();
-            // let elapsed_millis = last_position_read_at.elapsed().as_millis();
-            // let moved_height = (last_position - current_position).abs();
 
-            println!("lastpos: {}, lastposreadat: {:?}, rem_dist: {}", last_position, last_position_read_at, remaining_distance);
-
-            // Tenth of millimetres per second
-            // let speed = ((moved_height as f64 / elapsed_millis as f64) * 1000f64) as i16;
-
-            // if let Some(ref progress) = progress {
-            //     progress.inc(speed as u64);
-            //     let position_cm = current_position as f32 / 100.0;
-            //     progress.set_message(format!("{}", position_cm));
-            // }
+            println!(
+                "lastpos: {}, lastposreadat: {:?}, rem_dist: {}",
+                last_position, last_position_read_at, remaining_distance
+            );
 
             // If under/over 1cm we call it a day. From my testing it's under <3mm always(sometimes it might fuck up and do like 8mm but fuck it)
             if remaining_distance <= 100 {
@@ -313,23 +283,7 @@ impl<T: Device> Idasen<T> {
             } else if !going_up {
                 self.down().await?;
             }
-
-            // If we're either:
-            // * less than 5 millimetres, or:
-            // * less than half a second from target
-            // then we need to stop every iteration so that we don't overshoot
-            // if remaining_distance < max(speed / 2, 50) {
-            //     self.stop().await?;
-            // }
-
-            // Read last_position again to avoid weird speed readings when switching direction
-            // last_position = self.position().await? as i16;
-            // last_position_read_at = Instant::now();
         }
-
-        // if let Some(progress) = progress {
-        //     progress.finish();
-        // }
 
         Ok(())
     }
@@ -344,18 +298,4 @@ impl<T: Device> Idasen<T> {
         let value = self.desk.read(&self.position_characteristic).await?;
         Ok(bytes_to_position_speed(&value))
     }
-
-    // shits unused
-    // Listen to position and speed changes
-    // pub async fn position_and_speed_stream(
-    //     &self,
-    // ) -> Result<impl Stream<Item = PositionSpeed>, Error> {
-    //     Ok(self.desk.notifications().await?.filter_map(|notification| {
-    //         if notification.uuid == POSITION_UUID {
-    //             Some(bytes_to_position_speed(&notification.value))
-    //         } else {
-    //             None
-    //         }
-    //     }))
-    // }
 }

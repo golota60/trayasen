@@ -8,7 +8,7 @@ interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 const Button = ({ children, onClick, className, ...rest }: Props) => {
   return (
     <button
-      className={`rounded border-2 px-2 py-1 border-slate-600 ${className}`}
+      className={`rounded border-2 px-2 py-1 border-slate-600 bg-slate-900 ${className} disabled:bg-slate-500 disabled:cursor-not-allowed`}
       onClick={onClick}
       {...rest}
     >

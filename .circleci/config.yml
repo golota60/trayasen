@@ -17,6 +17,8 @@ jobs:
       - image: cimg/rust:1.67.1-node
     steps:
       - checkout
+      - node/install-packages:
+          pkg-manager: yarn
       - run: yarn tauri:build
 workflows:
   build-all:

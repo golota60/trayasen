@@ -1,20 +1,26 @@
 interface Props {
-    size: 'sm' | 'md' | 'lg';
+  size: "sm" | "md" | "lg";
 }
 
-const getSize = (size: Props['size']) => {
-    switch (size) {
-        case "sm":
-            return 'w-6';
-        case "md":
-            return 'w-10';
-        case "lg":
-            return 'w-14';
-    }
-}
+const getSize = (size: Props["size"]) => {
+  switch (size) {
+    case "sm":
+      return "w-6";
+    case "md":
+      return "w-10";
+    case "lg":
+      return "w-14";
+  }
+};
 
-const Spinner = ({ size = 'sm' }: Props) => {
-    return <img className={`animate-[spin_1.5s_linear_infinite] ${getSize(size)}`} src="/carrot.png" alt="A carrot logo" />;
-}
+const Spinner = ({ size = "sm" }: Props) => {
+  return (
+    <img
+      className={`animate-[spin_1.5s_linear_infinite] ${getSize(size)}`}
+      src="/carrot.png"
+      alt="A carrot logo"
+    />
+  );
+};
 
 export default Spinner;

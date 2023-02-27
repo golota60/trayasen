@@ -1,9 +1,6 @@
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
 import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
-import SetupPage from "./SetupPage";
 import ManagePositionsPage from "./ManagePositionsPage";
 
 const PageContent = () => {
@@ -11,7 +8,6 @@ const PageContent = () => {
 
   // Do not rely on router for simplicity
   if (path === "/about") {
-    // return <SetupPage />;
     return <AboutPage />;
   }
 
@@ -27,7 +23,7 @@ const PageContent = () => {
     return <IntroPage />;
   }
 
-  // Return intro page as a fallback; this should never happen but yeah fuck me if it does
+  // Return intro page as a fallback; this should never happen but yeah fuck me if it does TODO: return error page
   return <IntroPage />;
 };
 

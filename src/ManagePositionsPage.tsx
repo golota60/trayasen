@@ -1,25 +1,11 @@
-import { invoke } from "@tauri-apps/api";
-import React, { useState } from "react";
 import useSimpleAsync from "use-simple-async";
+import { appWindow } from "@tauri-apps/api/window";
 import Button from "./generic/Button";
 import removeIcon from "./assets/cross.svg";
-import { appWindow } from "@tauri-apps/api/window";
-
-interface Config {
-  local_name: string;
-  saved_positions: Array<{ name: string; value: number }>;
-}
-
-async function getPositions(): Promise<Config> {
-  return await invoke("get_config");
-}
-
-async function removePosition(positionName: string): Promise<Config> {
-  return await invoke("remove_position", { posName: positionName });
-}
+import { getPositions, removePosition } from "./rustUtils";
 
 const ManagePositionsPage = () => {
-  const [data, { loading, error, retry }] = useSimpleAsync(getPositions);
+  const [data, { retry }] = useSimpleAsync(getPositions);
 
   console.log(data);
   return (
@@ -35,7 +21,7 @@ const ManagePositionsPage = () => {
           </thead>
           {data?.saved_positions
             ? data?.saved_positions.map(({ name, value }) => (
-                <tbody className="contents">
+                <tbody className="contents" key={name}>
                   {/**
                    * TODO: Add a tooltip or some shit
                    */}

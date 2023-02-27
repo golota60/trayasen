@@ -1,9 +1,9 @@
-import { invoke } from "@tauri-apps/api";
 import React, { useState } from "react";
+import { appWindow } from "@tauri-apps/api/window";
 import Button from "./generic/Button";
 import Input from "./generic/Input";
 import { MAX_HEIGHT, MIN_HEIGHT } from "./utils";
-import { appWindow } from "@tauri-apps/api/window";
+import { createNewElem } from "./rustUtils";
 
 enum ErrorCodes {
   no_name = "Name cannot be empty",
@@ -28,10 +28,6 @@ const NewPositionPage = () => {
 
     setValue(newVal);
   };
-
-  async function createNewElem(): Promise<"duplicate" | "success"> {
-    return await invoke("create_new_elem", { name, value:Number(value) });
-  }
 
   return (
     <>
@@ -71,13 +67,13 @@ const NewPositionPage = () => {
               setError(locErr);
             } else {
               // try to create an elem
-              let resp = await createNewElem();
+              let resp = await createNewElem(name, value);
 
               if (resp === "duplicate") {
                 setError(ErrorCodes.duplicate);
               } else {
                 // exit cause shits been created
-                console.log('closing...')
+                console.log("closing...");
                 appWindow.close();
               }
             }

@@ -3,11 +3,11 @@
     windows_subsystem = "windows"
 )]
 
-use std::{any::Any, error::Error, sync::Mutex};
+use std::sync::Mutex;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use serde::Serialize;
-use tauri::{Manager, SystemTray, SystemTrayEvent};
+use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
 mod broken_idasen;
 mod config_utils;
@@ -71,11 +71,11 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
         .map(|x| match config.local_name {
             Some(_) => PotentialDesk {
                 name: x.name.to_string(),
-                status: SavedDeskStates::New.as_str().to_string(),
+                status: SavedDeskStates::Saved.as_str().to_string(),
             },
             None => PotentialDesk {
                 name: x.name.to_string(),
-                status: SavedDeskStates::Saved.as_str().to_string(),
+                status: SavedDeskStates::New.as_str().to_string(),
             },
         })
         .collect::<Vec<PotentialDesk>>();
@@ -85,9 +85,7 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
     Ok(desk_list_view)
 }
 
-/// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
-#[tauri::command]
-async fn connect_to_desk_by_name(
+async fn connect_to_desk_by_name_internal(
     name: String,
     desk: tauri::State<'_, SharedDesk>,
 ) -> Result<(), ()> {
@@ -98,35 +96,34 @@ async fn connect_to_desk_by_name(
         .perp
         .clone();
 
+    save_desk_name(&name);
     loose_idasen::setup(&desk_to_connect).await;
-    // loose_idasen::up(&desk_to_connect).await;
     *desk.0.lock().unwrap() = Some(desk_to_connect);
 
+    println!("connected to desk by name");
     Ok(())
 }
 
-fn main() {
-    let rt = tokio::runtime::Runtime::new().expect("Error while initializing runtime");
+/// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
+#[tauri::command]
+async fn connect_to_desk_by_name(
+    name: String,
+    desk: tauri::State<'_, SharedDesk>,
+) -> Result<(), ()> {
+    connect_to_desk_by_name_internal(name, desk).await
+}
 
+async fn save_desk_name(name: &String) {
+    let new_local_name = name;
+    config_utils::save_local_name(new_local_name.clone());
+}
+
+fn main() {
     let config = config_utils::get_or_create_config();
 
     println!("Loaded config: {:?}", config);
 
     let local_name = &config.local_name;
-
-    // let power_desk = rt
-    // .block_on(local_idasen::get_list_of_desks(&None));
-    // .expect("Error while unwrapping local idasen instance");
-    let desk_perp: Option<broken_idasen::ExpandedPeripheral> = None; //power_desk.actual_idasen;
-
-    // let actual_desk: Option<local_idasen::PowerIdasen<impl Peripheral>> =
-
-    // Save the desk's name if not present
-    // if local_name.is_none() {
-    //     let new_local_name = power_desk.local_name;
-    //     // println!("{:?}", desk);
-    //     config_utils::save_local_name(new_local_name);
-    // }
 
     let tray = config_utils::create_main_tray_menu(&config);
     let tray = SystemTray::new().with_menu(tray);
@@ -135,15 +132,23 @@ fn main() {
         .system_tray(tray)
         .manage(SharedDesk(None.into()))
         .setup(move |app| {
-            // Immidiately close the window if user has done the initialization
-            // let is_init_done = config.saved_positions.len() > 0;
+            let loc_name = config.local_name;
 
-            // if is_init_done {
-            //     let win = app
-            //         .get_window("main")
-            //         .expect("Error while getting main window window on init");
-            //     win.close().expect("Error while closing the window");
-            // }
+            match loc_name {
+                // If saved name is defined, don't open the initial window
+                Some(e) => {
+                    println!("config found. closing main window");
+
+                    let win = app
+                        .get_window("main")
+                        .expect("Error while getting main window window on init");
+                    win.close().expect("Error while closing the window");
+                    block_on(async {
+                        connect_to_desk_by_name(e, app.state::<SharedDesk>()).await;
+                    });
+                }
+                None => {}
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -213,28 +218,18 @@ fn main() {
                         .iter()
                         .find(|pos| pos.position_elem.id_str == remaining_id)
                         .expect("Clicked element not found");
-                    rt.block_on(async {
+                    block_on(async {
                         let target_height = found_elem.value;
                         let state = app.state::<SharedDesk>();
 
-                        let x = state;
-                        let x = x.0.lock();
-                        let x = x.expect("Error while unwrapping shared desk");
-                        let x = x
+                        let desk = state;
+                        let desk = desk.0.lock();
+                        let desk = desk.expect("Error while unwrapping shared desk");
+                        let desk = desk
                             .as_ref()
                             .expect("Desk should have been defined at this point");
 
-                        // .expect("Error while unwrapping shared desk")
-                        // .expect("Desk should have been defined at this point");
-                        // let x = state.0.lock().expect("Error while unwrapping shared desk");
-                        // let x = x.expect("Desk should have been defined at this point");
-                        // println!(
-                        //     "Moving the table. Pos name: {}. Pos height:{}",
-                        //     found_elem.name, found_elem.value
-                        // );
-                        // loose_idasen::up(x).await;
-                        loose_idasen::move_to(x, found_elem.value).await;
-                        // desk_perp.unwrap().move_to(target_height).await
+                        loose_idasen::move_to(desk, found_elem.value).await;
                     })
                 }
             },

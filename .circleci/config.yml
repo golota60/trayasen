@@ -25,6 +25,7 @@ jobs:
       - run: sudo apt-get install libsoup2.4-dev
       - run: sudo apt-get install libjavascriptcoregtk-4.0-dev
       - run: sudo apt-get install webkit2gtk-4.0-dev
+      - run: sudo apt-get install libappindicator3-1
       - run: yarn tauri:build
 workflows:
   build-all:

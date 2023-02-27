@@ -21,6 +21,7 @@ jobs:
           pkg-manager: yarn
       - run: sudo apt-get update -y
       - run: sudo apt-get install libglib2.0-dev
+      - run: sudo apt-get install libgtk-3-dev
       - run: yarn tauri:build
 workflows:
   build-all:

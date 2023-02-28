@@ -9,7 +9,6 @@ use btleplug::platform::Peripheral as PlatformPeripheral;
 use serde::Serialize;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
-mod broken_idasen;
 mod config_utils;
 mod local_idasen;
 mod loose_idasen;
@@ -80,7 +79,7 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
         })
         .collect::<Vec<PotentialDesk>>();
 
-    println!("{:?}", &desk_list_view);
+    println!("Connecting to desk: {:?}", &desk_list_view);
 
     Ok(desk_list_view)
 }
@@ -96,7 +95,7 @@ async fn connect_to_desk_by_name_internal(
         .perp
         .clone();
 
-    save_desk_name(&name);
+    save_desk_name(&name).await;
     loose_idasen::setup(&desk_to_connect).await;
     *desk.0.lock().unwrap() = Some(desk_to_connect);
 
@@ -132,7 +131,7 @@ fn main() {
         .system_tray(tray)
         .manage(SharedDesk(None.into()))
         .setup(move |app| {
-            let loc_name = config.local_name;
+            let loc_name = &config.local_name;
 
             match loc_name {
                 // If saved name is defined, don't open the initial window
@@ -144,7 +143,7 @@ fn main() {
                         .expect("Error while getting main window window on init");
                     win.close().expect("Error while closing the window");
                     block_on(async {
-                        connect_to_desk_by_name(e, app.state::<SharedDesk>()).await;
+                        connect_to_desk_by_name(e.to_string(), app.state::<SharedDesk>()).await;
                     });
                 }
                 None => {}

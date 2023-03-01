@@ -36,3 +36,7 @@ export const createNewElem = async (
 ): Promise<"duplicate" | "success"> => {
   return await invoke("create_new_elem", { name, value: Number(value) });
 };
+
+export const removeConfig = async () => {
+  return await invoke("remove_config");
+};

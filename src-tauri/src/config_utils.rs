@@ -1,8 +1,8 @@
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::{
-    fs::{self, read_to_string, OpenOptions},
-    io::Write,
+    fs::{self, read_to_string, OpenOptions, remove_file},
+    io::Write
 };
 use tauri::{
     api::path::data_dir, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu,
@@ -11,7 +11,7 @@ use tauri::{
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 
 pub const QUIT_ID: &str = "quit";
-pub const ABOUT_ID: &str = "about";
+pub const ABOUT_ID: &str = "about/options";
 pub const ADD_POSITION_ID: &str = "add_position";
 pub const HEADER_ID: &str = "idasen_controller";
 pub const MANAGE_POSITIONS_ID: &str = "manage_positions";
@@ -132,6 +132,13 @@ pub fn update_config(updated_config: &ConfigData) {
         .expect("Saving a config after updatign a config");
 }
 
+#[tauri::command]
+pub fn remove_config() {
+    let config_path = get_config_path().trim_end().to_string();
+
+    remove_file(config_path);
+}
+
 pub struct MenuConfigItem {
     pub position_elem: CustomMenuItem,
     pub name: String,
@@ -180,7 +187,7 @@ pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
     let positions_submenu = SystemTraySubmenu::new("Positions", sys_tray_menu);
 
     let header_item = CustomMenuItem::new(HEADER_ID.to_string(), "Idasen Controller").disabled();
-    let about_item = CustomMenuItem::new(ABOUT_ID.to_string(), "About");
+    let about_item = CustomMenuItem::new(ABOUT_ID.to_string(), "About/Options");
     let quit_item = CustomMenuItem::new(QUIT_ID.to_string(), "Quit");
     let main_menu = SystemTrayMenu::new()
         .add_item(header_item)

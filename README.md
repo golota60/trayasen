@@ -1,4 +1,3 @@
-
 <p align="center">
 </p>
 
@@ -11,15 +10,16 @@
 	<br>
 </div>
 
-Linux             |  MacOS   | Windows
-:-------------------------:|:-------------------------:|:-------------------------:
-![](https://github.com/golota60/idasen-tray-controller/blob/master/linux-demo.png)  |  ![](https://github.com/golota60/idasen-tray-controller/blob/master/macos-demo.png)   |   ![](https://github.com/golota60/idasen-tray-controller/blob/master/win-demo.png)
+|                                       Linux                                        |                                       MacOS                                        |                                     Windows                                      |
+| :--------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
+| ![](https://github.com/golota60/idasen-tray-controller/blob/master/linux-demo.png) | ![](https://github.com/golota60/idasen-tray-controller/blob/master/macos-demo.png) | ![](https://github.com/golota60/idasen-tray-controller/blob/master/win-demo.png) |
 
 <br>
 
 ## Installation
 
 [Here](https://github.com/golota60/idasen-tray-controller/releases/) you can find all the releases and associated files you should download. Here's a quick explanation which version is for what system:
+
 - `windows-x64.zip` - contains `.exe` and `.msi` files - compiled for windows 64-bit system.
 - `linux-x64.zip` - contains `.deb` and `.AppImage - compiled for linux 64-bit system.
 - `aarch64-apple-darwin.zip` - contains `.dmg`, `.app` and `.sh`(for debugging) - compiled for apple silicon.
@@ -28,7 +28,7 @@ Linux             |  MacOS   | Windows
 
 ## Usage
 
-When you open the app for the first time, it will automatically scan the network to find any desks that have `Desk` in their name. Once it finds it, it will attempt to connect.
+When you open the app for the first time, it will open up a setup screen, and display all the bluetooth devices with "Desk" in their name. Once connected, the desk name will be saved and it will not appear when opening the app later.
 
 After first usage, the name of the desk is saved in the configuration file, so the next time you open the app, it should connect to the desk automatically.
 
@@ -48,27 +48,32 @@ Desk should NOT be connected to the system while opening the app. This is a weir
 
 ### Linux
 
-On my local machine(steam deck/arch) there are no quirks and the app handles almost any interaction. But since there are a lot of linux flavors out there, there's a chance that your machine might have some
+Connect to the desk using your system bluetooth control. After this, everything should just work. But since there are a lot of linux flavors out there, there's a chance that your machine might have some different quirks.
 
-## Troubleshooting and reset config
+## Troubleshooting and config resetting
 
-If you encounter any problems that were not explained anywhere in this README, feel free to open an issue describing your problem.
+If you want to reset your config go into `About/Options` menu and you should see a config reset button.
+If you encounter any problems that were not explained anywhere in this README, feel free to open an issue describing your problem. If you wish to inspect the config file, below are the locations.
 
-If you'd like to reset the app to factory settings, delete the following file(depending on the system you're using):
 - MacOS
+
 ```bash
  /Users/<your_profile_name>/Library/Application\ Support/idasen-tray-config.json
 ```
+
 - Linux
+
 ```bash
  /home/<your_profile_name>/.local/share/idasen-tray-config.json
 ```
+
 - Windows
+
 ```bash
  C:\\Users\\<your_profile_name>\\AppData\\Roaming/idasen-tray-config.json
 ```
 
-**Important** - If you changed your device name, you'll also need to remove this file.
+**Important** - If you changed your desk device name, you'll also need to restet the config.
 
 ## Self-compiling
 
@@ -95,13 +100,14 @@ Roadmap(w/o order):
 - [x] Nicer icon
 - [x] Better input window decorator- no need imo
 - [x] Better desk moving behavior(currently it moves weirdly, due to usage of external lib)
-- [X] More information inside README + potential problems
+- [x] More information inside README + potential problems
 - [ ] Better tests
 - [ ] Run on system startup
-- [ ] Display a setup screen instead of automatic connection for better UX
-- [ ] Allow for config reset from inside the app
+- [x] Display a setup screen instead of automatic connection for better UX
+- [x] Allow for config reset from inside the app
 - [ ] Add options(TBD which ones)
-- [ ] Automatic update prompts
+- [ ] Automatic update prompts(?)
+- [ ] Automatic deploys & changelog on CI
 
 Known issues:
 

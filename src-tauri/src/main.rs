@@ -154,8 +154,9 @@ fn main() {
             create_new_elem,
             config_utils::get_config,
             config_utils::remove_position,
+            config_utils::remove_config,
             get_desk_to_connect,
-            connect_to_desk_by_name
+            connect_to_desk_by_name,
         ])
         .enable_macos_default_menu(false)
         .on_system_tray_event(move |app, event| match event {

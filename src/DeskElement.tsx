@@ -5,10 +5,14 @@ import { connectToDesk } from "./rustUtils";
 
 interface Props {
   deskName: string;
+  onConnect?: () => void;
+  isConnected?: boolean;
 }
 
-const DeskElement = ({ deskName }: Props) => {
+const DeskElement = ({ deskName, onConnect, isConnected = false }: Props) => {
   const [loading, setLoading] = useState(false);
+
+  const text = isConnected ? "Connected!" : "Connect";
 
   return (
     <div className="flex justify-between items-center my-4">
@@ -19,9 +23,10 @@ const DeskElement = ({ deskName }: Props) => {
           setLoading(true);
           await connectToDesk(deskName);
           setLoading(false);
+          onConnect?.();
         }}
       >
-        {loading ? <Spinner size="sm" /> : "Connect"}
+        {loading ? <Spinner size="sm" /> : text}
       </Button>
     </div>
   );

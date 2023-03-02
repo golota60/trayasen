@@ -18,13 +18,7 @@
 
 ## Installation
 
-[Here](https://github.com/golota60/idasen-tray-controller/releases/) you can find all the releases and associated files you should download. Here's a quick explanation which version is for what system:
-
-- `windows-x64.zip` - contains `.exe` and `.msi` files - compiled for windows 64-bit system.
-- `linux-x64.zip` - contains `.deb` and `.AppImage - compiled for linux 64-bit system.
-- `aarch64-apple-darwin.zip` - contains `.dmg`, `.app` and `.sh`(for debugging) - compiled for apple silicon.
-- `x86_64-apple-darwin.zip` - contains `.dmg`, `.app` and `.sh`(for debugging) - compiled for apple with intel-based processors.
-- `universal-apple-darwin.zip` - contains `.dmg`, `.app` and `.sh`(for debugging) - compiled for any macOS system. Around 2x bigger than a dedicated build.
+[Here](https://github.com/golota60/idasen-tray-controller/releases/) you can find all the releases and associated files you should download.
 
 ## Usage
 

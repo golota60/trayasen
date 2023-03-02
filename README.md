@@ -99,9 +99,10 @@ Roadmap(w/o order):
 - [ ] Run on system startup
 - [x] Display a setup screen instead of automatic connection for better UX
 - [x] Allow for config reset from inside the app
-- [ ] Add options(TBD which ones)
-- [ ] Automatic update prompts(?)
-- [ ] Automatic deploys & changelog on CI
+- [ ] Add options(low/high perf mode, system startup toggle)
+- [ ] ~Automatic update prompts(?)~ who would want their desk manager app to connect to the internet
+- [x] Automatic deploys
+- [ ] low/high perf mode
 
 Known issues:
 

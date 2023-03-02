@@ -18,13 +18,7 @@
 
 ## Installation
 
-[Here](https://github.com/golota60/idasen-tray-controller/releases/) you can find all the releases and associated files you should download. Here's a quick explanation which version is for what system:
-
-- `windows-x64.zip` - contains `.exe` and `.msi` files - compiled for windows 64-bit system.
-- `linux-x64.zip` - contains `.deb` and `.AppImage - compiled for linux 64-bit system.
-- `aarch64-apple-darwin.zip` - contains `.dmg`, `.app` and `.sh`(for debugging) - compiled for apple silicon.
-- `x86_64-apple-darwin.zip` - contains `.dmg`, `.app` and `.sh`(for debugging) - compiled for apple with intel-based processors.
-- `universal-apple-darwin.zip` - contains `.dmg`, `.app` and `.sh`(for debugging) - compiled for any macOS system. Around 2x bigger than a dedicated build.
+[Here](https://github.com/golota60/idasen-tray-controller/releases/) you can find all the releases and associated files you should download.
 
 ## Usage
 
@@ -102,12 +96,13 @@ Roadmap(w/o order):
 - [x] Better desk moving behavior(currently it moves weirdly, due to usage of external lib)
 - [x] More information inside README + potential problems
 - [ ] Better tests
-- [ ] Run on system startup
+- [x] Run on system startup
 - [x] Display a setup screen instead of automatic connection for better UX
 - [x] Allow for config reset from inside the app
-- [ ] Add options(TBD which ones)
-- [ ] Automatic update prompts(?)
-- [ ] Automatic deploys & changelog on CI
+- [ ] Add options(low/high perf mode, system startup toggle)
+- [ ] ~Automatic update prompts(?)~ who would want their desk manager app to connect to the internet
+- [x] Automatic deploys
+- [ ] low/high perf mode
 
 Known issues:
 

@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+use tauri_plugin_autostart::MacosLauncher;
 use std::sync::Mutex;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
@@ -128,6 +129,7 @@ fn main() {
     let tray = SystemTray::new().with_menu(tray);
 
     tauri::Builder::default()
+    .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .system_tray(tray)
         .manage(SharedDesk(None.into()))
         .setup(move |app| {

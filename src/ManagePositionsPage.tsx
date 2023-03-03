@@ -1,5 +1,6 @@
 import useSimpleAsync from "use-simple-async";
 import { appWindow } from "@tauri-apps/api/window";
+import { Link } from "found";
 import Button from "./generic/Button";
 import removeIcon from "./assets/cross.svg";
 import { getPositions, removePosition } from "./rustUtils";
@@ -47,9 +48,9 @@ const ManagePositionsPage = () => {
         </table>
       </div>
       <div className="w-full flex justify-between mt-3">
-        <a href="/new-position">
+        <Link to="/new-position">
           <Button>New position</Button>
-        </a>
+        </Link>
         <Button
           onClick={() => {
             appWindow.close();

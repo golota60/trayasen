@@ -1,3 +1,4 @@
+import { Link } from "found";
 import { useEffect, useState } from "react";
 import useSimpleAsync from "use-simple-async";
 import DeskElement from "./DeskElement";
@@ -75,11 +76,11 @@ const IntroPage = () => {
         )}
       </div>
       <p>Then, add a new postition!</p>
-      <a href="/new-position">
+      <Link to="/new-position">
         <Button className="mt-3" disabled={!isConnected}>
           Add a new position!
         </Button>
-      </a>
+      </Link>
     </div>
   );
 };

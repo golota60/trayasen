@@ -1,36 +1,23 @@
+import { RouteConfig, createBrowserRouter } from "found";
 import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
 import ManagePositionsPage from "./ManagePositionsPage";
 
-const PageContent = () => {
-  const path = window.location.pathname;
+const routeConfig: RouteConfig = [
+  { path: "/about", Component: AboutPage },
+  { path: "/new-position", Component: NewPositionPage },
+  { path: "/manage-positions", Component: ManagePositionsPage },
+  { path: "/intro", Component: IntroPage },
+  { path: "/*", Component: IntroPage },
+];
 
-  // Do not rely on router for simplicity
-  if (path === "/about") {
-    return <AboutPage />;
-  }
-
-  if (path === "/new-position") {
-    return <NewPositionPage />;
-  }
-
-  if (path === "/manage-positions") {
-    return <ManagePositionsPage />;
-  }
-
-  if (path === "/intro") {
-    return <IntroPage />;
-  }
-
-  // Return intro page as a fallback; this should never happen but yeah fuck me if it does TODO: return error page
-  return <IntroPage />;
-};
+const BrowserRouter = createBrowserRouter({ routeConfig });
 
 function App() {
   return (
     <div className="flex-col bg-slate-800 h-full flex justify-center items-center font-sans text-slate-100">
-      <PageContent />
+      <BrowserRouter />
     </div>
   );
 }

@@ -2,8 +2,8 @@
 </p>
 
 <div align="center">
-<img src="https://github.com/golota60/idasen-tray-controller/blob/master/public/carrot.png" width="200">
-	<h1>Idasen controller</h1>
+<img src="https://github.com/golota60/trayasen/blob/master/public/carrot.png" width="200">
+	<h1>Trayasen</h1>
 	<p>
 		<b>🥕 A cross-platform background tray app for controlling your IKEA Idasen desk 🥕</b>
 	</p>
@@ -12,13 +12,13 @@
 
 |                                       Linux                                        |                                       MacOS                                        |                                     Windows                                      |
 | :--------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
-| ![](https://github.com/golota60/idasen-tray-controller/blob/master/linux-demo.png) | ![](https://github.com/golota60/idasen-tray-controller/blob/master/macos-demo.png) | ![](https://github.com/golota60/idasen-tray-controller/blob/master/win-demo.png) |
+| ![](https://github.com/golota60/trayasen/blob/master/linux-demo.png) | ![](https://github.com/golota60/trayasen/blob/master/macos-demo.png) | ![](https://github.com/golota60/trayasen/blob/master/win-demo.png) |
 
 <br>
 
 ## Installation
 
-[Here](https://github.com/golota60/idasen-tray-controller/releases/) you can find all the releases and associated files you should download.
+[Here](https://github.com/golota60/trayasen/releases/) you can find all the releases and associated files you should download.
 
 ## Usage
 

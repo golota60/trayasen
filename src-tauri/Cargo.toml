@@ -1,6 +1,6 @@
 [package]
-name = "idasen-tray-controller"
-version = "0.0.2"
+name = "Trayasen"
+version = "0.0.3"
 description = "An app to control IKEA Idasen desk"
 authors = ["you"]
 license = "MIT"

@@ -6,8 +6,8 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "idasen-tray-controller",
-    "version": "0.0.2"
+    "productName": "Trayasen",
+    "version": "0.0.3"
   },
   "tauri": {
     "allowlist": {
@@ -32,7 +32,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "szywis.idasen.tray-v0.0.1",
+      "identifier": "szywis.Trayasen-v0.0.3",
       "longDescription": "",
       "macOS": {
         "entitlements": null,

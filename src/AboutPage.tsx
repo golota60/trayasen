@@ -83,7 +83,7 @@ const AboutPage = () => {
           If something doesn't work for you - please file an issue under{" "}
           <a
             target="_blank"
-            href="https://github.com/golota60/idasen-tray/issues/new"
+            href="https://github.com/golota60/trayasen/issues/new"
             rel="noreferrer"
           >
             this link

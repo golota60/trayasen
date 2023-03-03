@@ -169,7 +169,7 @@ fn main() {
                     std::process::exit(0);
                 }
                 config_utils::ABOUT_ID => {
-                    tauri::WindowBuilder::new(
+                    match tauri::WindowBuilder::new(
                         app,
                         "main",
                         tauri::WindowUrl::App("index.html".into()),
@@ -180,11 +180,15 @@ fn main() {
                     history.replaceState({}, '','/about');
                     "#,
                     )
-                    .build()
-                    .expect("Error while trying to open about window");
+                    .build() {
+                        Ok(_) => {},
+                        Err(_) => {
+                            println!("Error while trying to open about window");
+                        }
+                    }
                 }
                 config_utils::ADD_POSITION_ID => {
-                    tauri::WindowBuilder::new(
+                    match tauri::WindowBuilder::new(
                         app,
                         "main",
                         tauri::WindowUrl::App("index.html".into()),
@@ -195,11 +199,15 @@ fn main() {
                     history.replaceState({}, '','/new-position');
                     "#,
                     )
-                    .build()
-                    .expect("Error while trying to open new postition window");
+                    .build() {
+                        Ok(_) => {},
+                        Err(_) => {
+                            println!("Error while trying to open new postition window");
+                        }
+                    }
                 }
                 config_utils::MANAGE_POSITIONS_ID => {
-                    tauri::WindowBuilder::new(
+                    match tauri::WindowBuilder::new(
                         app,
                         "main",
                         tauri::WindowUrl::App("index.html".into()),
@@ -210,8 +218,12 @@ fn main() {
                     history.replaceState({}, '','/manage-positions');
                     "#,
                     )
-                    .build()
-                    .expect("Error while trying to open manage positions window");
+                    .build() {
+                        Ok(_) => {},
+                        Err(_) => {
+                            println!("Error while trying to open manage positions window");
+                        }
+                    }
                 }
                 remaining_id => {
                     // Check whether a position has been clicked

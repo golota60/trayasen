@@ -10,8 +10,8 @@
 	<br>
 </div>
 
-|                                       Linux                                        |                                       MacOS                                        |                                     Windows                                      |
-| :--------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
+|                                Linux                                 |                                MacOS                                 |                              Windows                               |
+| :------------------------------------------------------------------: | :------------------------------------------------------------------: | :----------------------------------------------------------------: |
 | ![](https://github.com/golota60/trayasen/blob/master/linux-demo.png) | ![](https://github.com/golota60/trayasen/blob/master/macos-demo.png) | ![](https://github.com/golota60/trayasen/blob/master/win-demo.png) |
 
 <br>
@@ -82,7 +82,7 @@ To run the app in developer environment, clone the repo, run `yarn` in the root(
 
 ## Releasing
 
-The release is automatically triggered upon push to the `release` branch. In order to release, simply create commit that bumps up version in `tauri.conf.json` in master, then a `release` branch that mirrors `master` branch. 
+The release is automatically triggered upon push to the `release` branch. In order to release, simply create commit that bumps up version in `tauri.conf.json` in master, then a `release` branch that mirrors `master` branch.
 
 ## Roadmap, known issues and feature requests
 
@@ -112,4 +112,4 @@ Known issues:
 
 - [x] Clicking on newly added element
 - [ ] manually stopping a moving desk deadlocks the app
-- [ ] opening a new window while the other is already open
+- [x] opening a new window while the other is already open

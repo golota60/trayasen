@@ -179,7 +179,7 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/about');
                     "#,
-                    )
+                    ).title("Trayasen - About/Options")
                     .build() {
                         Ok(_) => {},
                         Err(_) => {
@@ -198,7 +198,7 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/new-position');
                     "#,
-                    )
+                    ).title("Trayasen - Add position")
                     .build() {
                         Ok(_) => {},
                         Err(_) => {
@@ -217,7 +217,7 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/manage-positions');
                     "#,
-                    )
+                    ).title("Trayasen - Manage positions")
                     .build() {
                         Ok(_) => {},
                         Err(_) => {

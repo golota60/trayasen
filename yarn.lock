@@ -2903,10 +2903,10 @@ uri-js@^4.2.2:
   dependencies:
     punycode "^2.1.0"
 
-use-simple-async@^1.4.0:
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/use-simple-async/-/use-simple-async-1.4.0.tgz#97f067c98aaf5d9fd629be5d6efdbf652300ba8e"
-  integrity sha512-qEull4VcW56/L4a7qJ1DBPdMSYZQCc+jVEmW+Xs/KpOmy/itki8nOu++oQQOu3x2Iwqxc6ROKx6FAa+YJDwApQ==
+use-simple-async@^1.4.2:
+  version "1.4.2"
+  resolved "https://registry.yarnpkg.com/use-simple-async/-/use-simple-async-1.4.2.tgz#929059a6574485e7f6be6891273ac25384de6957"
+  integrity sha512-svexItUOxngdvA3IpbHB1AS6SkmNvDE0kZSP8+5srX9uQAkU18a2Y25OVUzHVjdJ+U2wINk3nhZ1+smNS9fw7g==
 
 use-sync-external-store@^1.0.0:
   version "1.2.0"

@@ -14,6 +14,7 @@ const IntroPage = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectedNewDesk, setConnectedNewDesk] = useState<string>();
+  const [showAll, setShowAll] = useState(false);
 
   // workaround for checking whether the desk is saved. TODO: make this nicer
   // If it's saved, autoconnect
@@ -54,11 +55,15 @@ const IntroPage = () => {
           </Button>
         </div>
         <div>
-          Error contents: <p>{error as any}</p>
+          Error contents: <p>{String(error as any)}</p>
         </div>
       </div>
     );
   }
+
+  const dataToDisplay = showAll
+    ? data
+    : data?.filter((e) => e.name.includes("Desk"));
 
   return (
     <div className="w-full h-full flex flex-col justify-center items-center bg-slate-800">
@@ -77,8 +82,8 @@ const IntroPage = () => {
         ) : (
           <>
             <p>No saved desk found. Connect to one of desks listed below:</p>
-            <div className="w-64">
-              {data?.map((e, i) => (
+            <div className="w-64 overflow-x-auto p-2 h-64">
+              {dataToDisplay?.map((e, i) => (
                 <DeskElement
                   key={i}
                   deskName={e.name}
@@ -90,6 +95,9 @@ const IntroPage = () => {
                 />
               ))}
             </div>
+            If your desk has a different name from "Desk XXXX", click the button
+            below to expand the listed
+            <Button onClick={() => setShowAll(true)}>Show all devices</Button>
           </>
         )}
       </div>

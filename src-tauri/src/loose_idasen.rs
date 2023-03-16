@@ -6,8 +6,8 @@ use std::{
 
 use btleplug::{
     api::{
-        BDAddr, Characteristic, Manager as ApiManager, ParseBDAddrError,
-        Peripheral as ApiPeripheral, ScanFilter, WriteType, Central,
+        BDAddr, Central, Characteristic, Manager as ApiManager, ParseBDAddrError,
+        Peripheral as ApiPeripheral, ScanFilter, WriteType,
     },
     platform::{Adapter, Manager, Peripheral as PlatformPeripheral},
 };
@@ -252,7 +252,7 @@ async fn search_adapter_for_desks(
 
                     device_name == &name
                 }
-                None => props.local_name.iter().any(|name| name.contains("Desk")),
+                None => props.local_name.iter().any(|name| name.contains("")),
             } {
                 desks.push(ExpandedPeripheral {
                     perp: peripheral,

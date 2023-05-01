@@ -3050,7 +3050,7 @@ tailwindcss@^3.2.4:
 
 "tauri-plugin-autostart-api@https://github.com/tauri-apps/tauri-plugin-autostart":
   version "0.0.0"
-  resolved "git+ssh://git@github.com/tauri-apps/tauri-plugin-autostart.git#3d370278d86de2d26b78cbd63b43b6dbea386df4"
+  resolved "https://github.com/tauri-apps/tauri-plugin-autostart#3d370278d86de2d26b78cbd63b43b6dbea386df4"
   dependencies:
     "@tauri-apps/api" "^1.2.0"
 

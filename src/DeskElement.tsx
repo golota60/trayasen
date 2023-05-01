@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Button from "./generic/Button";
+import { Button } from "./generic/button";
 import Spinner from "./generic/Spinner";
 import { connectToDesk } from "./rustUtils";
 
@@ -18,7 +18,7 @@ const DeskElement = ({ deskName, onConnect, isConnected = false }: Props) => {
     <div className="flex justify-between items-center my-4">
       <span>{deskName}</span>
       <Button
-        className="w-16 h-6 flex justify-center items-center"
+        className="flex justify-center items-center"
         onClick={async () => {
           setLoading(true);
           await connectToDesk(deskName);

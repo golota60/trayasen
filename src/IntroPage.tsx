@@ -1,9 +1,16 @@
 import { relaunch } from "@tauri-apps/api/process";
 import { Link } from "found";
+import { HelpCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import useSimpleAsync from "use-simple-async";
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "./generic/tooltip";
 import DeskElement from "./DeskElement";
-import Button from "./generic/Button";
+import { Button } from "./generic/button";
 import Spinner from "./generic/Spinner";
 import { connectToDesk, getConnectionDesk, removeConfig } from "./rustUtils";
 
@@ -66,9 +73,14 @@ const IntroPage = () => {
     : data?.filter((e) => e.name.includes("Desk"));
 
   return (
-    <div className="w-full h-full flex flex-col justify-center items-center bg-slate-800">
+    <div className="w-full h-full flex flex-col justify-center items-center">
       <img src="/carrot.png" alt="A carrot logo" />
-      <h1 className="text-4xl mt-2 mb-3">Welcome to Trayasen!</h1>
+      <h1
+        className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
+ mt-2 mb-3"
+      >
+        Welcome to Trayasen!
+      </h1>
       <p>
         This app will help you to interact with your IKEA Idasen Desk from the
         system tray.
@@ -102,11 +114,20 @@ const IntroPage = () => {
         )}
       </div>
       <p>Then, add a new postition!</p>
-      <Link to="/new-position">
-        <Button className="mt-3" disabled={!isConnected}>
-          Add a new position!
-        </Button>
-      </Link>
+      <TooltipProvider>
+        <Tooltip disableHoverableContent={!isConnected} delayDuration={100}>
+          <TooltipTrigger>
+            <Button className="mt-4" disabled={!isConnected}>
+              <Link to="/new-position">Add a new position!</Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>
+              You have to be connected to a desk to start adding new positions
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };

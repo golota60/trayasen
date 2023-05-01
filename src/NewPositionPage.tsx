@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { appWindow } from "@tauri-apps/api/window";
-import Button from "./generic/Button";
-import Input from "./generic/Input";
+import { Button } from "./generic/button";
+import { Input } from "./generic/input";
 import { MAX_HEIGHT, MIN_HEIGHT } from "./utils";
 import { createNewElem } from "./rustUtils";
+import { Label } from "./generic/label";
 
 enum ErrorCodes {
   no_name = "Name cannot be empty",
@@ -33,14 +34,20 @@ const NewPositionPage = () => {
     <>
       <img src="/carrot.png" alt="A carrot logo" />
       <div className="flex justify-center flex-col">
-        <h1 className="text-4xl mt-2 mb-3">Create a new position</h1>
-
+        <h1
+          className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
+ mt-2 mb-3"
+        >
+          Add a new position
+        </h1>
         <div className="flex flex-col">
-          <label htmlFor="nameInput">Position name</label>
+          <Label className="mt-2 mb-2" htmlFor="nameInput">
+            Position name
+          </Label>
           <Input value={name} id="nameInput" onChange={handleChangeName} />
-          <label className="mt-2" htmlFor="valueInput">
-            Position height(between {MIN_HEIGHT} and {MAX_HEIGHT})
-          </label>
+          <Label className="mt-4 mb-2" htmlFor="valueInput">
+            Position height (between {MIN_HEIGHT} and {MAX_HEIGHT})
+          </Label>
           <Input value={value} id="valueInput" onChange={handleChangeValue} />
         </div>
         <div className={`h-4 my-3 text-red-500 ${!error && "invisible"}`}>

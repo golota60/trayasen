@@ -1,11 +1,9 @@
-@tailwind base;
-
 /* Firefox */
 * {
-  --primary: transparent;
-  --secondary: rgb(73, 73, 73);
+  --primary-scroll: transparent;
+  --secondary-scroll: rgb(73, 73, 73);
   scrollbar-width: thin;
-  scrollbar-color: var(--secondary) var(--primary);
+  scrollbar-color: var(--secondary-scroll) var(--primary-scroll);
   box-sizing: content-box;
 }
 
@@ -15,28 +13,69 @@
 }
 
 *::-webkit-scrollbar-track {
-  background: var(--primary);
+  background: var(--primary-scroll);
   border-radius: 5px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: var(--secondary);
+  background-color: var(--secondary-scroll);
   border-radius: 14px;
-  border: 3px solid var(--primary);
+  border: 3px solid var(--primary-scroll);
 }
-
-@tailwind components;
-@tailwind utilities;
 
 #root {
   width: 100vw;
   height: 100vh;
 }
 
-a {
-  color: lightblue;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+
+    --popover: 224 71% 4%;
+    --popover-foreground: 215 20.2% 65.1%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 1.2%;
+
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --ring: 216 34% 17%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+  }
 }
 
-a:hover {
-  text-decoration: underline;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
 }

@@ -1,7 +1,7 @@
 import useSimpleAsync from "use-simple-async";
 import { appWindow } from "@tauri-apps/api/window";
 import { Link } from "found";
-import Button from "./generic/Button";
+import { Button } from "./generic/button";
 import removeIcon from "./assets/cross.svg";
 import { getPositions, removePosition } from "./rustUtils";
 
@@ -12,7 +12,12 @@ const ManagePositionsPage = () => {
   return (
     <div className="flex flex-col items-center">
       <img src="/carrot.png" alt="A carrot logo" />
-      <h1 className="text-4xl mt-2 mb-3">Manage positions</h1>
+      <h1
+        className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
+ mt-2 mb-3"
+      >
+        Manage positions
+      </h1>
       <div className="h-80 max-w-md overflow-scroll  overflow-x-hidden">
         <table className="grid grid-cols-[2fr_2fr_1fr] text-left gap-x-3">
           <thead className="contents">

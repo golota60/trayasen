@@ -1,6 +1,5 @@
 import { relaunch } from "@tauri-apps/api/process";
 import { Link } from "found";
-import { HelpCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import useSimpleAsync from "use-simple-async";
 import {

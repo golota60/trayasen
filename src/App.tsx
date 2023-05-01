@@ -16,7 +16,7 @@ const BrowserRouter = createBrowserRouter({ routeConfig });
 
 function App() {
   return (
-    <div className="flex-col bg-slate-800 h-full flex justify-center items-center font-sans text-slate-100">
+    <div className="flex-col h-full flex justify-center items-center font-sans bg-background">
       <BrowserRouter />
     </div>
   );

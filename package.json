@@ -14,11 +14,19 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@radix-ui/react-checkbox": "^1.0.3",
+    "@radix-ui/react-label": "^2.0.1",
+    "@radix-ui/react-slot": "^1.0.1",
+    "@radix-ui/react-tooltip": "^1.0.5",
     "@tauri-apps/api": "^1.2.0",
+    "class-variance-authority": "^0.6.0",
     "clsx": "^1.2.1",
     "found": "^1.2.1",
+    "lucide-react": "^0.188.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tailwind-merge": "^1.12.0",
+    "tailwindcss-animate": "^1.0.5",
     "tauri-plugin-autostart-api": "https://github.com/tauri-apps/tauri-plugin-autostart",
     "use-simple-async": "^1.4.2"
   },

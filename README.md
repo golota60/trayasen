@@ -80,9 +80,11 @@ Prerequisites are `node`, `yarn` and `rust`.
 
 To run the app in developer environment, clone the repo, run `yarn` in the root(to install JS dependencies), and then run `yarn tauri dev`. The app might take a while to build for the first time.
 
+Frontend is using [shadcn/ui](https://ui.shadcn.com/) for styling 
+
 ## Releasing
 
-The release is automatically triggered upon push to the `release` branch. In order to release, simply create commit that bumps up version in `tauri.conf.json` in master, then a `release` branch that mirrors `master` branch.
+The release is automatically triggered upon push to the `release` branch. In order to release, simply create commit that bumps up version in `tauri.conf.json` in master, then create a `release` branch that mirrors `master` branch. After the pipeline finishes - there should be a draft release create it. Then simply navigate to "Releases" and release the draft.
 
 ## Roadmap, known issues and feature requests
 

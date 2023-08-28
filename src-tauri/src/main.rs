@@ -143,12 +143,15 @@ fn main() {
             match loc_name {
                 // If saved name is defined, don't open the initial window
                 Some(e) => {
-                    println!("config found. closing main window");
+                    println!(
+                        "config found. closing main window. name: {:?}",
+                        e.to_string()
+                    );
 
-                    win.close().expect("Error while closing the window");
                     block_on(async {
                         connect_to_desk_by_name(e.to_string(), app.state::<SharedDesk>()).await;
                     });
+                    println!("after connect by name");
                 }
                 None => {
                     win.show();

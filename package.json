@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@callstack/eslint-config": "^13.0.2",
-    "@tauri-apps/cli": "^1.2.2",
+    "@tauri-apps/cli": "^1.4.0",
     "@types/node": "^18.7.10",
     "@types/react": "^18.0.15",
     "@types/react-dom": "^18.0.6",

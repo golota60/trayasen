@@ -3,15 +3,14 @@
     windows_subsystem = "windows"
 )]
 
-use tauri_plugin_autostart::MacosLauncher;
 use std::sync::Mutex;
+use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use serde::Serialize;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
 mod config_utils;
-mod local_idasen;
 mod loose_idasen;
 
 #[derive(Default)]
@@ -65,7 +64,7 @@ struct PotentialDesk {
 #[tauri::command]
 async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
     let config = config_utils::get_or_create_config();
-    let desk_list = local_idasen::get_list_of_desks(&config.local_name).await;
+    let desk_list = loose_idasen::get_list_of_desks(&config.local_name).await;
     let desk_list_view = desk_list
         .iter()
         .map(|x| match config.local_name {
@@ -89,7 +88,7 @@ async fn connect_to_desk_by_name_internal(
     name: String,
     desk: tauri::State<'_, SharedDesk>,
 ) -> Result<(), ()> {
-    let desk_to_connect = local_idasen::get_list_of_desks(&Some(name.clone()))
+    let desk_to_connect = loose_idasen::get_list_of_desks(&Some(name.clone()))
         .await
         .first()
         .expect("Error while getting a desk to connect to")
@@ -129,7 +128,10 @@ fn main() {
     let tray = SystemTray::new().with_menu(tray);
 
     tauri::Builder::default()
-    .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .system_tray(tray)
         .manage(SharedDesk(None.into()))
         .setup(move |app| {
@@ -179,9 +181,11 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/about');
                     "#,
-                    ).title("Trayasen - About/Options")
-                    .build() {
-                        Ok(_) => {},
+                    )
+                    .title("Trayasen - About/Options")
+                    .build()
+                    {
+                        Ok(_) => {}
                         Err(_) => {
                             println!("Error while trying to open about window");
                         }
@@ -198,9 +202,11 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/new-position');
                     "#,
-                    ).title("Trayasen - Add position")
-                    .build() {
-                        Ok(_) => {},
+                    )
+                    .title("Trayasen - Add position")
+                    .build()
+                    {
+                        Ok(_) => {}
                         Err(_) => {
                             println!("Error while trying to open new postition window");
                         }
@@ -217,9 +223,11 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/manage-positions');
                     "#,
-                    ).title("Trayasen - Manage positions")
-                    .build() {
-                        Ok(_) => {},
+                    )
+                    .title("Trayasen - Manage positions")
+                    .build()
+                    {
+                        Ok(_) => {}
                         Err(_) => {
                             println!("Error while trying to open manage positions window");
                         }
@@ -245,7 +253,7 @@ fn main() {
                             .as_ref()
                             .expect("Desk should have been defined at this point");
 
-                        loose_idasen::move_to(desk, found_elem.value).await;
+                        loose_idasen::move_to_target(desk, found_elem.value).await;
                     })
                 }
             },

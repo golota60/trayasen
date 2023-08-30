@@ -97,9 +97,12 @@ pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeriphe
 
 /// Do a set of tasks for a peripheral to make it usable.
 pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeripheral>, Error> {
-    let mac_addr = desk.address();
-    desk.connect().await?;
-    desk.discover_services().await?;
+    let mac_addr = BDAddr::default(); //desk.address();
+    println!("got the mac! desk: {:?}", &desk);
+    let x = desk.connect().await.unwrap();
+    println!("connected!!");
+    let y = desk.discover_services().await.unwrap();
+    println!("discovered!");
 
     let control_characteristic = desk
         .characteristics()
@@ -107,6 +110,7 @@ pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeriphera
         .find(|c| c.uuid == CONTROL_UUID)
         .ok_or_else(|| Error::CharacteristicsNotFound("Control".to_string()))?
         .clone();
+    println!("got the characteristics!");
 
     let position_characteristic = desk
         .characteristics()
@@ -114,10 +118,12 @@ pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeriphera
         .find(|c| c.uuid == POSITION_UUID)
         .ok_or_else(|| Error::CharacteristicsNotFound("Position".to_string()))?
         .clone();
+    println!("got the position characteristics!!");
 
     if desk.subscribe(&position_characteristic).await.is_err() {
         return Err(Error::CannotSubscribePosition);
     };
+    println!("subscribed!!");
 
     Ok(Idasen {
         desk: desk.to_owned(),

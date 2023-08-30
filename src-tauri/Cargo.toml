@@ -19,7 +19,7 @@ serde_derive = "1.0.152"
 serde_json = "1.0.91"
 tauri = { version = "1.4.1", features = ["api-all", "system-tray"] }
 idasen = "0.2.0"
-btleplug = "0.11.0"
+btleplug = "0.10.0"
 tokio = { version = "1.24.1", features = ["full"] }
 indicatif = "0.16.2"
 thiserror = "1.0.30"

@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use std::sync::Mutex;
+use std::{sync::Mutex, thread};
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
@@ -94,12 +94,16 @@ async fn connect_to_desk_by_name_internal(
         .expect("Error while getting a desk to connect to")
         .perp
         .clone();
+    println!("after desk to connect!");
 
     save_desk_name(&name).await;
+    println!("saved desk!");
     loose_idasen::setup(&desk_to_connect).await;
-    *desk.0.lock().unwrap() = Some(desk_to_connect);
 
-    println!("connected to desk by name");
+    println!("all set up!");
+    *desk.0.lock().unwrap() = Some(desk_to_connect);
+    println!("assigned and connected!");
+
     Ok(())
 }
 
@@ -143,15 +147,18 @@ fn main() {
             match loc_name {
                 // If saved name is defined, don't open the initial window
                 Some(e) => {
-                    println!(
-                        "config found. closing main window. name: {:?}",
-                        e.to_string()
-                    );
+                    win.show();
 
-                    block_on(async {
-                        connect_to_desk_by_name(e.to_string(), app.state::<SharedDesk>()).await;
-                    });
-                    println!("after connect by name");
+                    // println!(
+                    //     "config found. closing main window. name: {:?}",
+                    //     e.to_string()
+                    // );
+
+                    // block_on(async {
+                    //     connect_to_desk_by_name_internal(e.to_string(), app.state::<SharedDesk>())
+                    //         .await;
+                    // });
+                    // println!("after connect by name");
                 }
                 None => {
                     win.show();
@@ -236,9 +243,11 @@ fn main() {
                         }
                     }
                 }
+                // Means a position name has been clicked
                 remaining_id => {
                     // Check whether a position has been clicked
                     // Get config one more time, in case there's a new position added since intialization
+                    println!("something has been clicked");
                     let config = config_utils::get_config();
                     let updated_menus = config_utils::get_menu_items_from_config(&config);
                     let found_elem = updated_menus

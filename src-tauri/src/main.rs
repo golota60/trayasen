@@ -140,13 +140,12 @@ fn main() {
         .manage(SharedDesk(None.into()))
         .setup(move |app| {
             let loc_name = &config.local_name;
-
-            let win = app
-                .get_window("main")
-                .expect("Error while getting main window window on init");
             match loc_name {
                 // If saved name is defined, don't open the initial window
                 Some(e) => {
+                    let win = app
+                        .get_window("main")
+                        .unwrap();
                     // We need to connect to the desk from a javascript level(unfortunately)
                     win.show();
 
@@ -161,9 +160,11 @@ fn main() {
                     // });
                     // println!("after connect by name");
 
-                    win.close();
                 }
                 None => {
+                    let win = app
+                        .get_window("main")
+                        .expect("Error while getting main window window on init");
                     win.show();
                 }
             }
@@ -182,6 +183,27 @@ fn main() {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 config_utils::QUIT_ID => {
                     std::process::exit(0);
+                }
+                config_utils::NOTIFY_CONNECT_ID => {
+                    match tauri::WindowBuilder::new(
+                        app,
+                        config_utils::NOTIFY_CONNECT_ID,
+                        tauri::WindowUrl::App("index.html".into()),
+                    )
+                    .always_on_top(true)
+                    .initialization_script(
+                        r#"
+                    history.replaceState({}, '','/autoconnect');
+                    "#,
+                    )
+                    .title("Trayasen - About/Options")
+                    .build()
+                    {
+                        Ok(_) => {}
+                        Err(_) => {
+                            println!("Error while trying to open about window");
+                        }
+                    }
                 }
                 config_utils::ABOUT_ID => {
                     match tauri::WindowBuilder::new(

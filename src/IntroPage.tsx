@@ -2,6 +2,7 @@ import { relaunch } from "@tauri-apps/api/process";
 import { Link } from "found";
 import { useEffect, useState } from "react";
 import useSimpleAsync from "use-simple-async";
+import { appWindow } from "@tauri-apps/api/window";
 import {
   TooltipProvider,
   Tooltip,
@@ -30,10 +31,13 @@ const IntroPage = () => {
 
   useEffect(() => {
     if (!isConnecting && isSaved && !isConnected) {
-      setIsConnecting(true);
-      connectToDesk(data?.[0].name);
-      setIsConnecting(false);
-      setIsConnected(true);
+      (async () => {
+        setIsConnecting(true);
+        await connectToDesk(data?.[0].name);
+        setIsConnecting(false);
+        setIsConnected(true);
+        appWindow.close();
+      })();
     }
   }, [isSaved, data, isConnecting, isConnected]);
 

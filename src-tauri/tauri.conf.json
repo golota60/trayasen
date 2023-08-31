@@ -65,7 +65,7 @@
         "label": "main",
         "width": 1280,
         "visible": false,
-        "alwaysOnTop": true
+        "alwaysOnTop": false
       }
     ],
     "systemTray": {

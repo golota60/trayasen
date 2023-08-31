@@ -3,12 +3,14 @@ import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
 import ManagePositionsPage from "./ManagePositionsPage";
+import AutoconnectPage from "./AutoconnectPage";
 
 const routeConfig: RouteConfig = [
   { path: "/about", Component: AboutPage },
   { path: "/new-position", Component: NewPositionPage },
   { path: "/manage-positions", Component: ManagePositionsPage },
   { path: "/intro", Component: IntroPage },
+  { path: "/autoconnect", Component: AutoconnectPage },
   { path: "/*", Component: IntroPage },
 ];
 

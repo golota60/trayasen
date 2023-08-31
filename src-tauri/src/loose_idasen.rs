@@ -77,11 +77,32 @@ where
     pub position_characteristic: Characteristic,
 }
 
+pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeripheral> {
+    let desks = match loc_name {
+        // If local name was provided
+        Some(loc_name) => {
+            let desks = get_desks(Some(loc_name.clone())).await;
+            desks
+        }
+        // If local name was NOT provided
+        None => {
+            let desks = get_desks(None).await;
+            desks
+        }
+    };
+    let desks = desks.expect("Error while getting a list of desks");
+
+    desks
+}
+
 /// Do a set of tasks for a peripheral to make it usable.
 pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeripheral>, Error> {
-    let mac_addr = desk.address();
-    desk.connect().await?;
-    desk.discover_services().await?;
+    let mac_addr = BDAddr::default(); //desk.address();
+    println!("got the mac! desk: {:?}", &desk);
+    let x = desk.connect().await.unwrap();
+    println!("connected!!");
+    let y = desk.discover_services().await.unwrap();
+    println!("discovered!");
 
     let control_characteristic = desk
         .characteristics()
@@ -89,6 +110,7 @@ pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeriphera
         .find(|c| c.uuid == CONTROL_UUID)
         .ok_or_else(|| Error::CharacteristicsNotFound("Control".to_string()))?
         .clone();
+    println!("got the characteristics!");
 
     let position_characteristic = desk
         .characteristics()
@@ -96,10 +118,12 @@ pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeriphera
         .find(|c| c.uuid == POSITION_UUID)
         .ok_or_else(|| Error::CharacteristicsNotFound("Position".to_string()))?
         .clone();
+    println!("got the position characteristics!!");
 
     if desk.subscribe(&position_characteristic).await.is_err() {
         return Err(Error::CannotSubscribePosition);
     };
+    println!("subscribed!!");
 
     Ok(Idasen {
         desk: desk.to_owned(),
@@ -109,8 +133,8 @@ pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeriphera
     })
 }
 
-/// Ggetting characteristics every time is wasteful
-/// TODO: Try to refactor this - maybe chuck this into shared tauri state?
+// Getting characteristics every time is wasteful
+// TODO: Try to refactor this - maybe chuck this into shared tauri state?
 pub async fn get_control_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
     desk.characteristics()
         .iter()
@@ -119,8 +143,7 @@ pub async fn get_control_characteristic(desk: &impl ApiPeripheral) -> Characteri
         .expect("err while getting characteristic")
         .clone()
 }
-/// Getting characteristics every time is wasteful
-/// TODO: Try to refactor this - maybe chuck this into shared tauri state?
+
 pub async fn get_position_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
     desk.characteristics()
         .iter()
@@ -130,31 +153,26 @@ pub async fn get_position_characteristic(desk: &impl ApiPeripheral) -> Character
         .clone()
 }
 
-pub async fn up(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
+async fn up(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
     let control_characteristic = get_control_characteristic(desk).await;
 
     desk.write(&control_characteristic, &UP, WriteType::WithoutResponse)
         .await
 }
 
-pub async fn down(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
+async fn down(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
     let control_characteristic = get_control_characteristic(desk).await;
     desk.write(&control_characteristic, &DOWN, WriteType::WithoutResponse)
         .await
 }
 
-pub async fn stop(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
+async fn stop(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
     let control_characteristic = get_control_characteristic(desk).await;
     desk.write(&control_characteristic, &STOP, WriteType::WithoutResponse)
         .await
 }
 
-/// Move desk to a position
-pub async fn move_to(desk: &impl ApiPeripheral, target_position: u16) -> Result<(), Error> {
-    move_to_target(desk, target_position).await
-}
-
-async fn move_to_target(desk: &impl ApiPeripheral, target_position: u16) -> Result<(), Error> {
+pub async fn move_to_target(desk: &impl ApiPeripheral, target_position: u16) -> Result<(), Error> {
     println!("starting moving to target");
     if !(MIN_HEIGHT..=MAX_HEIGHT).contains(&target_position) {
         return Err(Error::PositionNotInRange);

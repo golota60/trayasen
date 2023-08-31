@@ -16,6 +16,9 @@ pub const ADD_POSITION_ID: &str = "add_position";
 pub const HEADER_ID: &str = "idasen_controller";
 pub const MANAGE_POSITIONS_ID: &str = "manage_positions";
 
+// Screen to notify the user that we're connecting to his desk. To be ran when user has a saved desk
+pub const NOTIFY_CONNECT_ID: &str = "notify_connect";
+
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Position {
     pub name: String,

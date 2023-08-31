@@ -3,15 +3,14 @@
     windows_subsystem = "windows"
 )]
 
+use std::{sync::Mutex, thread};
 use tauri_plugin_autostart::MacosLauncher;
-use std::sync::Mutex;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use serde::Serialize;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
 mod config_utils;
-mod local_idasen;
 mod loose_idasen;
 
 #[derive(Default)]
@@ -65,7 +64,7 @@ struct PotentialDesk {
 #[tauri::command]
 async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
     let config = config_utils::get_or_create_config();
-    let desk_list = local_idasen::get_list_of_desks(&config.local_name).await;
+    let desk_list = loose_idasen::get_list_of_desks(&config.local_name).await;
     let desk_list_view = desk_list
         .iter()
         .map(|x| match config.local_name {
@@ -89,18 +88,22 @@ async fn connect_to_desk_by_name_internal(
     name: String,
     desk: tauri::State<'_, SharedDesk>,
 ) -> Result<(), ()> {
-    let desk_to_connect = local_idasen::get_list_of_desks(&Some(name.clone()))
+    let desk_to_connect = loose_idasen::get_list_of_desks(&Some(name.clone()))
         .await
         .first()
         .expect("Error while getting a desk to connect to")
         .perp
         .clone();
+    println!("after desk to connect!");
 
     save_desk_name(&name).await;
+    println!("saved desk!");
     loose_idasen::setup(&desk_to_connect).await;
-    *desk.0.lock().unwrap() = Some(desk_to_connect);
 
-    println!("connected to desk by name");
+    println!("all set up!");
+    *desk.0.lock().unwrap() = Some(desk_to_connect);
+    println!("assigned and connected!");
+
     Ok(())
 }
 
@@ -129,26 +132,39 @@ fn main() {
     let tray = SystemTray::new().with_menu(tray);
 
     tauri::Builder::default()
-    .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .system_tray(tray)
         .manage(SharedDesk(None.into()))
         .setup(move |app| {
             let loc_name = &config.local_name;
-
-            let win = app
-                .get_window("main")
-                .expect("Error while getting main window window on init");
             match loc_name {
                 // If saved name is defined, don't open the initial window
                 Some(e) => {
-                    println!("config found. closing main window");
+                    let win = app
+                        .get_window("main")
+                        .unwrap();
+                    // We need to connect to the desk from a javascript level(unfortunately)
+                    win.show();
 
-                    win.close().expect("Error while closing the window");
-                    block_on(async {
-                        connect_to_desk_by_name(e.to_string(), app.state::<SharedDesk>()).await;
-                    });
+                    // println!(
+                    //     "config found. closing main window. name: {:?}",
+                    //     e.to_string()
+                    // );
+
+                    // block_on(async {
+                    //     connect_to_desk_by_name_internal(e.to_string(), app.state::<SharedDesk>())
+                    //         .await;
+                    // });
+                    // println!("after connect by name");
+
                 }
                 None => {
+                    let win = app
+                        .get_window("main")
+                        .expect("Error while getting main window window on init");
                     win.show();
                 }
             }
@@ -168,6 +184,27 @@ fn main() {
                 config_utils::QUIT_ID => {
                     std::process::exit(0);
                 }
+                config_utils::NOTIFY_CONNECT_ID => {
+                    match tauri::WindowBuilder::new(
+                        app,
+                        config_utils::NOTIFY_CONNECT_ID,
+                        tauri::WindowUrl::App("index.html".into()),
+                    )
+                    .always_on_top(true)
+                    .initialization_script(
+                        r#"
+                    history.replaceState({}, '','/autoconnect');
+                    "#,
+                    )
+                    .title("Trayasen - About/Options")
+                    .build()
+                    {
+                        Ok(_) => {}
+                        Err(_) => {
+                            println!("Error while trying to open about window");
+                        }
+                    }
+                }
                 config_utils::ABOUT_ID => {
                     match tauri::WindowBuilder::new(
                         app,
@@ -179,9 +216,11 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/about');
                     "#,
-                    ).title("Trayasen - About/Options")
-                    .build() {
-                        Ok(_) => {},
+                    )
+                    .title("Trayasen - About/Options")
+                    .build()
+                    {
+                        Ok(_) => {}
                         Err(_) => {
                             println!("Error while trying to open about window");
                         }
@@ -198,9 +237,11 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/new-position');
                     "#,
-                    ).title("Trayasen - Add position")
-                    .build() {
-                        Ok(_) => {},
+                    )
+                    .title("Trayasen - Add position")
+                    .build()
+                    {
+                        Ok(_) => {}
                         Err(_) => {
                             println!("Error while trying to open new postition window");
                         }
@@ -217,17 +258,21 @@ fn main() {
                         r#"
                     history.replaceState({}, '','/manage-positions');
                     "#,
-                    ).title("Trayasen - Manage positions")
-                    .build() {
-                        Ok(_) => {},
+                    )
+                    .title("Trayasen - Manage positions")
+                    .build()
+                    {
+                        Ok(_) => {}
                         Err(_) => {
                             println!("Error while trying to open manage positions window");
                         }
                     }
                 }
+                // Means a position name has been clicked
                 remaining_id => {
                     // Check whether a position has been clicked
                     // Get config one more time, in case there's a new position added since intialization
+                    println!("something has been clicked");
                     let config = config_utils::get_config();
                     let updated_menus = config_utils::get_menu_items_from_config(&config);
                     let found_elem = updated_menus
@@ -245,7 +290,7 @@ fn main() {
                             .as_ref()
                             .expect("Desk should have been defined at this point");
 
-                        loose_idasen::move_to(desk, found_elem.value).await;
+                        loose_idasen::move_to_target(desk, found_elem.value).await;
                     })
                 }
             },

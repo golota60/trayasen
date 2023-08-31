@@ -147,6 +147,7 @@ fn main() {
             match loc_name {
                 // If saved name is defined, don't open the initial window
                 Some(e) => {
+                    // We need to connect to the desk from a javascript level(unfortunately)
                     win.show();
 
                     // println!(
@@ -159,6 +160,8 @@ fn main() {
                     //         .await;
                     // });
                     // println!("after connect by name");
+
+                    win.close();
                 }
                 None => {
                     win.show();

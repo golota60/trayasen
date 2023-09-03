@@ -140,14 +140,14 @@ fn main() {
         .manage(SharedDesk(None.into()))
         .setup(move |app| {
             let loc_name = &config.local_name;
-            match loc_name {
-                // If saved name is defined, don't open the initial window
-                Some(e) => {
-                    let win = app
-                        .get_window("main")
-                        .unwrap();
+            // match loc_name {
+            //     // If saved name is defined, don't open the initial window
+            //     Some(e) => {
+                    // let win = app
+                    //     .get_window("main")
+                    //     .unwrap();
                     // We need to connect to the desk from a javascript level(unfortunately)
-                    win.show();
+                    // win.show();
 
                     // println!(
                     //     "config found. closing main window. name: {:?}",
@@ -160,14 +160,14 @@ fn main() {
                     // });
                     // println!("after connect by name");
 
-                }
-                None => {
-                    let win = app
-                        .get_window("main")
-                        .expect("Error while getting main window window on init");
-                    win.show();
-                }
-            }
+            //     }
+            //     None => {
+            //         let win = app
+            //             .get_window("main")
+            //             .expect("Error while getting main window window on init");
+            //         win.show();
+            //     }
+            // }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -183,27 +183,6 @@ fn main() {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 config_utils::QUIT_ID => {
                     std::process::exit(0);
-                }
-                config_utils::NOTIFY_CONNECT_ID => {
-                    match tauri::WindowBuilder::new(
-                        app,
-                        config_utils::NOTIFY_CONNECT_ID,
-                        tauri::WindowUrl::App("index.html".into()),
-                    )
-                    .always_on_top(true)
-                    .initialization_script(
-                        r#"
-                    history.replaceState({}, '','/autoconnect');
-                    "#,
-                    )
-                    .title("Trayasen - About/Options")
-                    .build()
-                    {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("Error while trying to open about window");
-                        }
-                    }
                 }
                 config_utils::ABOUT_ID => {
                     match tauri::WindowBuilder::new(

@@ -34,7 +34,7 @@ Some systems can handle the app gracefully, some don't - here are the quirks i'v
 
 ### Windows
 
-From my experience, in order to connect to the desk I had to first connect the desk via bluetooth control panel. After that, the app can pick up on it.
+From my experience, in order to connect to the desk I had to first connect the desk via bluetooth control panel. After that, the app can pick up on it. If it's your first time connecting your desk to your PC, you should get a pop-up on lower right "Click to set up "Desk XXXX". Click on that and then click "Allow", otherwise the app will not be able to connect to your desk.
 
 ### MacOS
 
@@ -46,7 +46,9 @@ Connect to the desk using your system bluetooth control. After this, everything 
 
 ## Troubleshooting and config resetting
 
-If you want to reset your config go into `About/Options` menu and you should see a config reset button.
+If you want to reset your config go into `About/Options` menu and you should see a config reset button. In case you cannot do that, delete the configuration file, path of which you can find below.
+
+
 If you encounter any problems that were not explained anywhere in this README, feel free to open an issue describing your problem. If you wish to inspect the config file, below are the locations.
 
 - MacOS
@@ -110,8 +112,9 @@ Roadmap(w/o order):
 - [x] Automatic deploys
 - [ ] low/high perf mode
 
-Known issues:
+Known issues(checked means fixed):
 
 - [x] Clicking on newly added element
-- [ ] manually stopping a moving desk deadlocks the app
-- [x] opening a new window while the other is already open
+- [ ] Manually stopping a moving desk deadlocks the app
+- [x] Opening a new window while the other is already open
+- [ ] Race condition when moving the desk right after opening the app

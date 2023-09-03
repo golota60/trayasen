@@ -110,8 +110,9 @@ Roadmap(w/o order):
 - [x] Automatic deploys
 - [ ] low/high perf mode
 
-Known issues:
+Known issues(checked means fixed):
 
 - [x] Clicking on newly added element
-- [ ] manually stopping a moving desk deadlocks the app
-- [x] opening a new window while the other is already open
+- [ ] Manually stopping a moving desk deadlocks the app
+- [x] Opening a new window while the other is already open
+- [ ] Race condition when moving the desk right after opening the app

@@ -6,6 +6,46 @@ import { MAX_HEIGHT, MIN_HEIGHT } from "./utils";
 import { createNewElem } from "./rustUtils";
 import { Label } from "./generic/label";
 
+const modifierMap = new Map<string, string>([
+  ["Command", "Cmd"],
+  ["Control", "Ctrl"],
+  ["Alt", "Alt"],
+  ["Option", "Option"],
+  ["AltGraph", "AltGr"],
+  ["Shift", "Shift"],
+  ["Super", "Super"],
+  ["Meta", "Meta"],
+]);
+
+const lowercaseMap = new Map<string, string>([
+  ["!", "1"],
+  ["@", "2"],
+  ["#", "3"],
+  ["$", "4"],
+  ["%", "5"],
+  ["^", "6"],
+  ["&", "7"],
+  ["*", "8"],
+  ["(", "9"],
+  [")", "0"],
+  ["_", "-"],
+  ["+", "="],
+  ["{", "["],
+  ["}", "]"],
+  [":", ";"],
+  ['"', "'"],
+  ["<", ","],
+  [">", "."],
+  ["?", "/"],
+  ["|", "\\"],
+  ["~", "`"],
+]);
+
+enum KeystoreStatusTexts {
+  init = "Click to register shortcut",
+  capturing = "Listening for input...",
+}
+
 enum ErrorCodes {
   no_name = "Name cannot be empty",
   wrong_value = "Value has to be between 6200 and 12700", // MIN_HEIGHT and MAX_HEIGHT
@@ -17,6 +57,47 @@ const NewPositionPage = () => {
   const [name, setName] = useState<string>("");
   const [value, setValue] = useState<string>("7200");
   const [error, setError] = useState<string | undefined>();
+  const [shortcutValue, setShortcutValue] = useState<string | undefined>("");
+  console.log(shortcutValue);
+  const [keystrokeText, setKeystrokeText] = useState<
+    string | KeystoreStatusTexts
+  >(KeystoreStatusTexts.init);
+
+  const keystrokeHandler = (e: KeyboardEvent) => {
+    if (e.defaultPrevented) {
+      return;
+    }
+    const key = lowercaseMap.get(e.key) || e.key;
+    const keyCode = e.code;
+    console.log(key, keyCode);
+
+    const isModifierKey = modifierMap.get(key);
+    if (isModifierKey) {
+      setShortcutValue((prevValue) => {
+        const newVal = prevValue ? `${prevValue}+${key}` : key;
+        return newVal;
+      });
+      return;
+    }
+    // Is normal key
+    // If previous value(modifier) exists, append, otherwise take as-is
+    setShortcutValue((prevValue) => {
+      const newVal = prevValue ? `${prevValue}+${key}` : key;
+      setKeystrokeText(newVal);
+      return newVal;
+    });
+
+    window.removeEventListener("keydown", keystrokeHandler, true);
+
+    e.preventDefault();
+  };
+
+  const handleRegisterKeyClick = () => {
+    setShortcutValue("");
+    setKeystrokeText(KeystoreStatusTexts.capturing);
+
+    window.addEventListener("keydown", keystrokeHandler, true);
+  };
 
   const handleChangeName = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
@@ -48,7 +129,27 @@ const NewPositionPage = () => {
           <Label className="mt-4 mb-2" htmlFor="valueInput">
             Position height (between {MIN_HEIGHT} and {MAX_HEIGHT})
           </Label>
-          <Input value={value} id="valueInput" onChange={handleChangeValue} />
+          <Input value={value} id="valueInput" onChange={handleChangeValue} />{" "}
+          <Label className="mt-4 mb-2" htmlFor="shortcutInput">
+            Shortcut(optional)
+          </Label>
+          <div className="flex">
+            <Button
+              className="mr-2"
+              id="shortcutInput"
+              onClick={handleRegisterKeyClick}
+            >
+              {keystrokeText}
+            </Button>
+            <Button
+              onClick={() => {
+                setShortcutValue("");
+                setKeystrokeText(KeystoreStatusTexts.init);
+              }}
+            >
+              Clear shortcut
+            </Button>
+          </div>
         </div>
         <div className={`h-4 my-3 text-red-500 ${!error && "invisible"}`}>
           {error || ""}
@@ -74,7 +175,7 @@ const NewPositionPage = () => {
               setError(locErr);
             } else {
               // try to create an elem
-              let resp = await createNewElem(name, value);
+              let resp = await createNewElem(name, value, shortcutValue);
 
               if (resp === "duplicate") {
                 setError(ErrorCodes.duplicate);

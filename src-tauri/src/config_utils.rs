@@ -19,6 +19,8 @@ pub const MANAGE_POSITIONS_ID: &str = "manage_positions";
 pub struct Position {
     pub name: String,
     pub value: u16,
+    /// String representation of shortcut
+    pub shortcut: Option<String>
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

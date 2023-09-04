@@ -32,9 +32,15 @@ export const removePosition = async (positionName: string): Promise<Config> => {
 
 export const createNewElem = async (
   name: string,
-  value: string | number
+  value: string | number,
+  shortcutvalue?: string
 ): Promise<"duplicate" | "success"> => {
-  return await invoke("create_new_elem", { name, value: Number(value) });
+  console.log(shortcutvalue);
+  return await invoke("create_new_elem", {
+    name,
+    value: Number(value),
+    shortcutvalue,
+  });
 };
 
 export const removeConfig = async () => {

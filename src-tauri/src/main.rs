@@ -9,6 +9,7 @@ use tauri_plugin_autostart::MacosLauncher;
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use serde::Serialize;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
+use tauri::GlobalShortcutManager;
 
 mod config_utils;
 mod loose_idasen;
@@ -17,8 +18,12 @@ mod loose_idasen;
 struct SharedDesk(Mutex<Option<PlatformPeripheral>>);
 
 #[tauri::command]
-fn create_new_elem(name: &str, value: u16) -> String {
+fn create_new_elem(app_handle: tauri::AppHandle, name: &str, value: u16, shortcutvalue: Option<String>) -> String {
     let mut config = config_utils::get_config();
+
+    let mut shortcut = app_handle.global_shortcut_manager();
+
+    println!("shortcut_acc: {:?}", shortcutvalue);
 
     let is_duplicate = config.saved_positions.iter().find(|elem| elem.name == name);
     match is_duplicate {
@@ -31,8 +36,18 @@ fn create_new_elem(name: &str, value: u16) -> String {
             config.saved_positions.push(config_utils::Position {
                 name: name.to_string(),
                 value,
+                shortcut: shortcutvalue.clone()
             });
             config_utils::update_config(&config);
+
+            match shortcutvalue {
+                Some(val) => {
+                    shortcut.register(val.as_str(),  || {
+                        println!("I should be moving");
+                    });
+                }
+                _ => {}
+            }
 
             "success".to_string()
         }
@@ -112,8 +127,24 @@ async fn connect_to_desk_by_name_internal(
 async fn connect_to_desk_by_name(
     name: String,
     desk: tauri::State<'_, SharedDesk>,
+    app_handle: tauri::AppHandle
 ) -> Result<(), ()> {
-    connect_to_desk_by_name_internal(name, desk).await
+    let config = config_utils::get_config();
+    let mut shortcut_manager = app_handle.global_shortcut_manager();
+    let x = connect_to_desk_by_name_internal(name, desk).await;
+
+    // After connecting, register shortcuts
+                    // TODO: REPORT ALL SHORTCUTS HERE
+                    let positions = config.saved_positions;
+                    for pos in positions.iter() {
+                        let shortcut_value = pos.shortcut.clone();
+                        if let Some(shortcut_value) = shortcut_value {
+                            shortcut_manager.register(shortcut_value.as_str(), || {
+                                connect_to_desk_by_name_internal(config.local_name.clone().unwrap().to_string(), desk);
+                            });
+                        }
+                    };
+                    x
 }
 
 async fn save_desk_name(name: &String) {
@@ -138,38 +169,7 @@ fn main() {
         ))
         .system_tray(tray)
         .manage(SharedDesk(None.into()))
-        .setup(move |app| {
-            let loc_name = &config.local_name;
-            // match loc_name {
-            //     // If saved name is defined, don't open the initial window
-            //     Some(e) => {
-                    // let win = app
-                    //     .get_window("main")
-                    //     .unwrap();
-                    // We need to connect to the desk from a javascript level(unfortunately)
-                    // win.show();
-
-                    // println!(
-                    //     "config found. closing main window. name: {:?}",
-                    //     e.to_string()
-                    // );
-
-                    // block_on(async {
-                    //     connect_to_desk_by_name_internal(e.to_string(), app.state::<SharedDesk>())
-                    //         .await;
-                    // });
-                    // println!("after connect by name");
-
-            //     }
-            //     None => {
-            //         let win = app
-            //             .get_window("main")
-            //             .expect("Error while getting main window window on init");
-            //         win.show();
-            //     }
-            // }
-            Ok(())
-        })
+        .setup(|app| {Ok(())})
         .invoke_handler(tauri::generate_handler![
             create_new_elem,
             config_utils::get_config,
@@ -277,12 +277,21 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(move |_app_handle, event| match event {
+        .run(move |app_handle, event| match event {
+            tauri::RunEvent::Ready => {
+                let config = config_utils::get_config();
+                let mut shortcut_manager = app_handle.global_shortcut_manager();
+                let desk = app_handle.state::<SharedDesk>();
+    
+                // TODO: HANDLE DUPLICATED SHORTCUTS
+
+
+            }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
                 let config = config_utils::get_config();
                 let main_menu = config_utils::create_main_tray_menu(&config);
-                _app_handle
+                app_handle
                     .tray_handle()
                     .set_menu(main_menu)
                     .expect("Error whilst unwrapping main menu");

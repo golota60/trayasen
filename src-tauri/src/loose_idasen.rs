@@ -95,7 +95,7 @@ pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeriphe
     desks
 }
 
-/// Do a set of tasks for a peripheral to make it usable.
+/// Do a set of tasks for a peripheral to make desk usable.
 pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeripheral>, Error> {
     let mac_addr = BDAddr::default(); //desk.address();
     println!("got the mac! desk: {:?}", &desk);

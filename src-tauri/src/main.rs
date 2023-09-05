@@ -4,6 +4,7 @@
 )]
 
 use std::sync::Mutex;
+use btleplug::api::{Peripheral as ApiPeripheral};
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
@@ -101,25 +102,22 @@ async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
 
 async fn connect_to_desk_by_name_internal(
     name: String,
-    desk: tauri::State<'_, SharedDesk>,
-) -> Result<(), ()> {
+    desk: &SharedDesk,
+) -> Result<PlatformPeripheral, ()> {
     let desk_to_connect = loose_idasen::get_list_of_desks(&Some(name.clone()))
-        .await
-        .first()
-        .expect("Error while getting a desk to connect to")
-        .perp
-        .clone();
+        .await;
+    let desk_to_connect = desk_to_connect.into_iter().next().expect("Error while getting a desk to connect to");
+    let desk_to_connect = desk_to_connect.perp;
     println!("after desk to connect!");
 
     save_desk_name(&name).await;
     println!("saved desk!");
     loose_idasen::setup(&desk_to_connect).await;
 
-    println!("all set up!");
-    *desk.0.lock().unwrap() = Some(desk_to_connect);
-    println!("assigned and connected!");
+    // println!("all set up!");
+    // println!("assigned and connected!");
 
-    Ok(())
+    Ok(desk_to_connect)
 }
 
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
@@ -131,7 +129,9 @@ async fn connect_to_desk_by_name(
 ) -> Result<(), ()> {
     let config = config_utils::get_config();
     // let mut shortcut_manager = app_handle.global_shortcut_manager();
-    let x = connect_to_desk_by_name_internal(name, desk).await;
+    let x = connect_to_desk_by_name_internal(name, &desk).await.unwrap();
+    
+    // *desk.0.lock().unwrap() = Some(x);
 
     // // After connecting, register shortcuts
     //                 // TODO: REPORT ALL SHORTCUTS HERE
@@ -158,6 +158,16 @@ async fn save_desk_name(name: &String) {
 fn main() {
     let config = config_utils::get_or_create_config();
 
+    let desk = SharedDesk(None.into());
+
+    let local_name = &config.local_name;
+    block_on( async {
+        if let Some(local_name) = local_name.clone() {
+            let cached_desk = connect_to_desk_by_name_internal(local_name.clone(), &desk).await;
+            *desk.0.lock().unwrap() = Some(cached_desk.unwrap());
+        }
+    });
+
     println!("Loaded config: {:?}", config);
 
     let tray = config_utils::create_main_tray_menu(&config);
@@ -169,8 +179,14 @@ fn main() {
             None,
         ))
         .system_tray(tray)
-        .manage(SharedDesk(None.into()))
-        .setup(|app| {Ok(())})
+        .manage(desk)
+        .setup(move |app| {                    
+            let loc_name = &config.local_name;    
+            if let Some(loc_name) = loc_name {
+                app.get_window("main").unwrap().close();
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             create_new_elem,
             config_utils::get_config,
@@ -198,14 +214,15 @@ fn main() {
                         .expect("Clicked element not found");
                     block_on(async {
                         let target_height = found_elem.value;
-                        let state = app.state::<SharedDesk>();
+                        let desk = app.state::<SharedDesk>();
 
-                        let desk = state;
+                        let desk = desk;
                         let desk = desk.0.lock();
                         let desk = desk.expect("Error while unwrapping shared desk");
                         let desk = desk
                             .as_ref()
                             .expect("Desk should have been defined at this point");
+
 
                         loose_idasen::move_to_target(desk, found_elem.value).await;
                     })
@@ -219,7 +236,7 @@ fn main() {
             tauri::RunEvent::Ready => {
                 let config = config_utils::get_config();
                 let mut shortcut_manager = app_handle.global_shortcut_manager();
-                let desk = app_handle.state::<SharedDesk>();
+                // let desk = app_handle.state::<SharedDesk>();
     
                 // TODO: HANDLE DUPLICATED SHORTCUTS
 

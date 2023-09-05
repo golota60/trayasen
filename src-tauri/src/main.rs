@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use std::{sync::Mutex, thread};
+use std::sync::Mutex;
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
@@ -13,6 +13,7 @@ use tauri::GlobalShortcutManager;
 
 mod config_utils;
 mod loose_idasen;
+mod tray_utils;
 
 #[derive(Default)]
 struct SharedDesk(Mutex<Option<PlatformPeripheral>>);
@@ -20,7 +21,6 @@ struct SharedDesk(Mutex<Option<PlatformPeripheral>>);
 #[tauri::command]
 fn create_new_elem(app_handle: tauri::AppHandle, name: &str, value: u16, shortcutvalue: Option<String>) -> String {
     let mut config = config_utils::get_config();
-
     let mut shortcut = app_handle.global_shortcut_manager();
 
     println!("shortcut_acc: {:?}", shortcutvalue);
@@ -130,21 +130,24 @@ async fn connect_to_desk_by_name(
     app_handle: tauri::AppHandle
 ) -> Result<(), ()> {
     let config = config_utils::get_config();
-    let mut shortcut_manager = app_handle.global_shortcut_manager();
+    // let mut shortcut_manager = app_handle.global_shortcut_manager();
     let x = connect_to_desk_by_name_internal(name, desk).await;
 
-    // After connecting, register shortcuts
-                    // TODO: REPORT ALL SHORTCUTS HERE
-                    let positions = config.saved_positions;
-                    for pos in positions.iter() {
-                        let shortcut_value = pos.shortcut.clone();
-                        if let Some(shortcut_value) = shortcut_value {
-                            shortcut_manager.register(shortcut_value.as_str(), || {
-                                connect_to_desk_by_name_internal(config.local_name.clone().unwrap().to_string(), desk);
-                            });
-                        }
-                    };
-                    x
+    // // After connecting, register shortcuts
+    //                 // TODO: REPORT ALL SHORTCUTS HERE
+    //                 let positions = config.saved_positions;
+    //                 for pos in positions.iter() {
+    //                     let shortcut_value = pos.shortcut.clone();
+    //                     if let Some(shortcut_value) = shortcut_value {
+    //                         shortcut_manager.register(shortcut_value.as_str(), || {
+    //                             connect_to_desk_by_name_internal(config.local_name.clone().unwrap().to_string(), desk);
+    //                         });
+    //                     }
+    //                 };
+    //                 x
+
+
+    Ok(())
 }
 
 async fn save_desk_name(name: &String) {
@@ -156,8 +159,6 @@ fn main() {
     let config = config_utils::get_or_create_config();
 
     println!("Loaded config: {:?}", config);
-
-    let local_name = &config.local_name;
 
     let tray = config_utils::create_main_tray_menu(&config);
     let tray = SystemTray::new().with_menu(tray);
@@ -181,75 +182,12 @@ fn main() {
         .enable_macos_default_menu(false)
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-                config_utils::QUIT_ID => {
-                    std::process::exit(0);
-                }
-                config_utils::ABOUT_ID => {
-                    match tauri::WindowBuilder::new(
-                        app,
-                        "main",
-                        tauri::WindowUrl::App("index.html".into()),
-                    )
-                    .always_on_top(true)
-                    .initialization_script(
-                        r#"
-                    history.replaceState({}, '','/about');
-                    "#,
-                    )
-                    .title("Trayasen - About/Options")
-                    .build()
-                    {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("Error while trying to open about window");
-                        }
-                    }
-                }
-                config_utils::ADD_POSITION_ID => {
-                    match tauri::WindowBuilder::new(
-                        app,
-                        "main",
-                        tauri::WindowUrl::App("index.html".into()),
-                    )
-                    .always_on_top(true)
-                    .initialization_script(
-                        r#"
-                    history.replaceState({}, '','/new-position');
-                    "#,
-                    )
-                    .title("Trayasen - Add position")
-                    .build()
-                    {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("Error while trying to open new postition window");
-                        }
-                    }
-                }
-                config_utils::MANAGE_POSITIONS_ID => {
-                    match tauri::WindowBuilder::new(
-                        app,
-                        "main",
-                        tauri::WindowUrl::App("index.html".into()),
-                    )
-                    .always_on_top(true)
-                    .initialization_script(
-                        r#"
-                    history.replaceState({}, '','/manage-positions');
-                    "#,
-                    )
-                    .title("Trayasen - Manage positions")
-                    .build()
-                    {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("Error while trying to open manage positions window");
-                        }
-                    }
-                }
-                // Means a position name has been clicked
+                config_utils::QUIT_ID => tray_utils::handle_exit_menu_click(),
+                config_utils::ABOUT_ID => tray_utils::handle_about_menu_click(app),
+                config_utils::ADD_POSITION_ID => tray_utils::handle_new_position_menu_click(app),
+                config_utils::MANAGE_POSITIONS_ID => tray_utils::handle_manage_positions_menu_click(app),
+                // If event is not one of predefined, assume a position has been clicked
                 remaining_id => {
-                    // Check whether a position has been clicked
                     // Get config one more time, in case there's a new position added since intialization
                     println!("something has been clicked");
                     let config = config_utils::get_config();
@@ -300,6 +238,4 @@ fn main() {
             }
             _ => {}
         });
-
-    println!("after create");
 }

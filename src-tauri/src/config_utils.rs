@@ -1,8 +1,8 @@
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::{
-    fs::{self, read_to_string, OpenOptions, remove_file},
-    io::Write
+    fs::{self, read_to_string, remove_file, OpenOptions},
+    io::Write,
 };
 use tauri::{
     api::path::data_dir, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu,
@@ -20,7 +20,7 @@ pub struct Position {
     pub name: String,
     pub value: u16,
     /// String representation of shortcut
-    pub shortcut: Option<String>
+    pub shortcut: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

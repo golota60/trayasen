@@ -11,11 +11,14 @@ use btleplug::{
     },
     platform::{Adapter, Manager, Peripheral as PlatformPeripheral},
 };
+use serde::Serialize;
 use uuid::Uuid;
 
+use crate::{config_utils, TauriSharedDesk};
+
 /*
-  This file contains loose utils to interact with the peripheral as if it's a desk.
-  Created it cause having an instance of a Idasen desk on top of a perhiperal poses a lot of problems
+  This file contains loose utils to interact with a desk bluetooth peripheral as if it's a desk.
+  Requires the device in question to already be connected, otherwise it will error
 */
 
 const CONTROL_UUID: Uuid = Uuid::from_bytes([
@@ -47,7 +50,7 @@ pub fn bytes_to_position_speed(bytes: &[u8]) -> PositionSpeed {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum BtError {
     #[error("Cannot find the device.")]
     CannotFindDevice,
 
@@ -67,14 +70,39 @@ pub enum Error {
     BtlePlugError(#[from] btleplug::Error),
 }
 
-pub struct Idasen<T>
+pub struct ConnectedBtDevice<T>
 where
     T: ApiPeripheral,
 {
     pub mac_addr: BDAddr,
-    pub desk: T,
+    pub device_instance: T,
     pub control_characteristic: Characteristic,
     pub position_characteristic: Characteristic,
+}
+
+/// Do a set of tasks for a peripheral to make the device(desk) usable.
+pub async fn setup_bt_desk_device(
+    device: &impl ApiPeripheral,
+) -> Result<ConnectedBtDevice<impl ApiPeripheral>, BtError> {
+    let mac_addr = BDAddr::default();
+    println!("got the mac! desk: {:?}", &device);
+    device.connect().await.unwrap();
+    device.discover_services().await.unwrap();
+
+    let control_characteristic = get_control_characteristic(device).await;
+    let position_characteristic = get_position_characteristic(device).await;
+
+    if device.subscribe(&position_characteristic).await.is_err() {
+        return Err(BtError::CannotSubscribePosition);
+    };
+    println!("Desk is fully set up");
+
+    Ok(ConnectedBtDevice {
+        device_instance: device.to_owned(),
+        mac_addr,
+        control_characteristic,
+        position_characteristic,
+    })
 }
 
 pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeripheral> {
@@ -95,51 +123,13 @@ pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeriphe
     desks
 }
 
-/// Do a set of tasks for a peripheral to make desk usable.
-pub async fn setup(desk: &impl ApiPeripheral) -> Result<Idasen<impl ApiPeripheral>, Error> {
-    let mac_addr = BDAddr::default(); //desk.address();
-    println!("got the mac! desk: {:?}", &desk);
-    let x = desk.connect().await.unwrap();
-    println!("connected!!");
-    let y = desk.discover_services().await.unwrap();
-    println!("discovered!");
-
-    let control_characteristic = desk
-        .characteristics()
-        .iter()
-        .find(|c| c.uuid == CONTROL_UUID)
-        .ok_or_else(|| Error::CharacteristicsNotFound("Control".to_string()))?
-        .clone();
-    println!("got the characteristics!");
-
-    let position_characteristic = desk
-        .characteristics()
-        .iter()
-        .find(|c| c.uuid == POSITION_UUID)
-        .ok_or_else(|| Error::CharacteristicsNotFound("Position".to_string()))?
-        .clone();
-    println!("got the position characteristics!!");
-
-    if desk.subscribe(&position_characteristic).await.is_err() {
-        return Err(Error::CannotSubscribePosition);
-    };
-    println!("subscribed!!");
-
-    Ok(Idasen {
-        desk: desk.to_owned(),
-        mac_addr,
-        control_characteristic,
-        position_characteristic,
-    })
-}
-
 // Getting characteristics every time is wasteful
 // TODO: Try to refactor this - maybe chuck this into shared tauri state?
 pub async fn get_control_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
     desk.characteristics()
         .iter()
         .find(|c| c.uuid == CONTROL_UUID)
-        .ok_or_else(|| Error::CharacteristicsNotFound("Control".to_string()))
+        .ok_or_else(|| BtError::CharacteristicsNotFound("Control".to_string()))
         .expect("err while getting characteristic")
         .clone()
 }
@@ -148,7 +138,7 @@ pub async fn get_position_characteristic(desk: &impl ApiPeripheral) -> Character
     desk.characteristics()
         .iter()
         .find(|c| c.uuid == POSITION_UUID)
-        .ok_or_else(|| Error::CharacteristicsNotFound("Position".to_string()))
+        .ok_or_else(|| BtError::CharacteristicsNotFound("Position".to_string()))
         .expect("Error while getting position characteristic")
         .clone()
 }
@@ -172,10 +162,13 @@ async fn stop(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
         .await
 }
 
-pub async fn move_to_target(desk: &impl ApiPeripheral, target_position: u16) -> Result<(), Error> {
+pub async fn move_to_target(
+    desk: &impl ApiPeripheral,
+    target_position: u16,
+) -> Result<(), BtError> {
     println!("starting moving to target");
     if !(MIN_HEIGHT..=MAX_HEIGHT).contains(&target_position) {
-        return Err(Error::PositionNotInRange);
+        return Err(BtError::PositionNotInRange);
     }
 
     let mut position_reached = false;
@@ -212,11 +205,11 @@ pub async fn move_to_target(desk: &impl ApiPeripheral, target_position: u16) -> 
     Ok(())
 }
 
-pub async fn get_position(desk: &impl ApiPeripheral) -> Result<u16, Error> {
+pub async fn get_position(desk: &impl ApiPeripheral) -> Result<u16, BtError> {
     Ok(get_position_and_speed(desk).await?.position)
 }
 
-pub async fn get_position_and_speed(desk: &impl ApiPeripheral) -> Result<PositionSpeed, Error> {
+pub async fn get_position_and_speed(desk: &impl ApiPeripheral) -> Result<PositionSpeed, BtError> {
     let position_characteristic = get_position_characteristic(desk).await;
 
     let value = desk.read(&position_characteristic).await?;
@@ -229,7 +222,7 @@ pub struct ExpandedPeripheral {
     pub name: String,
 }
 
-pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeripheral>, Error> {
+pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeripheral>, BtError> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
     let mut jobs = Vec::new();
@@ -244,7 +237,7 @@ pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeriphera
     }
 
     if desks.is_empty() {
-        Err(Error::CannotFindDevice)
+        Err(BtError::CannotFindDevice)
     } else {
         Ok(desks)
     }
@@ -253,7 +246,7 @@ pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeriphera
 async fn search_adapter_for_desks(
     adapter: Adapter,
     name: Option<String>,
-) -> Result<Vec<ExpandedPeripheral>, Error> {
+) -> Result<Vec<ExpandedPeripheral>, BtError> {
     adapter.start_scan(ScanFilter::default()).await?;
     tokio::time::sleep(Duration::from_secs(2)).await;
 
@@ -280,4 +273,68 @@ async fn search_adapter_for_desks(
         }
     }
     Ok(desks)
+}
+
+enum SavedDeskStates {
+    New,
+    Saved,
+}
+
+impl SavedDeskStates {
+    fn as_str(&self) -> &'static str {
+        match self {
+            SavedDeskStates::New => "new",
+            SavedDeskStates::Saved => "saved",
+        }
+    }
+}
+
+/// A type of a potential candidate to be a desk - essentially just a bluetooth device
+#[derive(Serialize, Debug)]
+pub struct PotentialDesk {
+    pub name: String,
+    pub status: String,
+}
+// https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
+/// Desk we're connecting to for UI info
+#[tauri::command]
+pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
+    let config = config_utils::get_or_create_config();
+    let desk_list = get_list_of_desks(&config.local_name).await;
+    let desk_list_view = desk_list
+        .iter()
+        .map(|x| match config.local_name {
+            Some(_) => PotentialDesk {
+                name: x.name.to_string(),
+                status: SavedDeskStates::Saved.as_str().to_string(),
+            },
+            None => PotentialDesk {
+                name: x.name.to_string(),
+                status: SavedDeskStates::New.as_str().to_string(),
+            },
+        })
+        .collect::<Vec<PotentialDesk>>();
+
+    println!("Found desk list: {:?}", &desk_list_view);
+
+    Ok(desk_list_view)
+}
+
+pub async fn connect_to_desk_by_name_internal(
+    name: String,
+    desk: &TauriSharedDesk,
+) -> Result<PlatformPeripheral, ()> {
+    let desk_to_connect = get_list_of_desks(&Some(name.clone())).await;
+    let desk_to_connect = desk_to_connect
+        .into_iter()
+        .next()
+        .expect("Error while getting a desk to connect to");
+    let desk_to_connect = desk_to_connect.perp;
+    println!("after desk to connect!");
+
+    config_utils::save_local_name(name);
+    println!("saved desk!");
+    setup_bt_desk_device(&desk_to_connect).await;
+
+    Ok(desk_to_connect)
 }

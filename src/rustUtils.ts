@@ -19,7 +19,7 @@ export const getConnectionDesk = async () => {
 
 export interface Config {
   local_name: string;
-  saved_positions: Array<{ name: string; value: number }>;
+  saved_positions: Array<{ name: string; value: number; shortcut?: string }>;
 }
 
 export const getPositions = async (): Promise<Config> => {

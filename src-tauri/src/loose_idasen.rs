@@ -14,7 +14,7 @@ use btleplug::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{config_utils, TauriSharedDesk};
+use crate::config_utils;
 
 /*
   This file contains loose utils to interact with a desk bluetooth peripheral as if it's a desk.
@@ -105,8 +105,10 @@ pub async fn setup_bt_desk_device(
     })
 }
 
-pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeripheral> {
-    let desks = match loc_name {
+async fn get_list_of_desks_once(
+    loc_name: &Option<String>,
+) -> Result<Vec<ExpandedPeripheral>, BtError> {
+    match loc_name {
         // If local name was provided
         Some(loc_name) => {
             let desks = get_desks(Some(loc_name.clone())).await;
@@ -117,11 +119,29 @@ pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeriphe
             let desks = get_desks(None).await;
             desks
         }
-    };
-    // TODO: try 3 times before erroring
-    let desks = desks.expect("Error while getting a list of desks");
+    }
+}
 
-    desks
+pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeripheral> {
+    let mut desks = get_list_of_desks_once(loc_name).await;
+    let mut success = false;
+    let mut tries = 0;
+    // try 3 times before erroring
+    while tries < 2 {
+        desks = get_list_of_desks_once(loc_name).await;
+        let ok = desks.is_ok();
+
+        if ok {
+            success = true;
+            break;
+        }
+
+        tries += 1;
+    }
+    if success == false {
+        panic!("Error while getting a list of desks");
+    }
+    desks.unwrap()
 }
 
 // Getting characteristics every time is wasteful
@@ -257,9 +277,7 @@ async fn search_adapter_for_desks(
             if match name {
                 Some(ref device_name) => {
                     // We're matching by name - ideally we'd do this by MAC Address, but macOS doesn't expose MAC addresses of bluetooth devices
-                    let y = props.address;
-
-                    // some devices might not have a local name
+                    // some devices might not have a local name - this might run into us into edge cases?
                     let name = props.local_name.clone().unwrap_or("".to_string());
 
                     device_name == &name
@@ -321,10 +339,7 @@ pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
     Ok(desk_list_view)
 }
 
-pub async fn connect_to_desk_by_name_internal(
-    name: String,
-    desk: &TauriSharedDesk,
-) -> Result<PlatformPeripheral, ()> {
+pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, ()> {
     let desk_to_connect = get_list_of_desks(&Some(name.clone())).await;
     let desk_to_connect = desk_to_connect
         .into_iter()

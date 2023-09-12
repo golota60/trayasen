@@ -45,22 +45,22 @@ fn create_new_elem(
             config_utils::update_config(&config);
 
             let desk = app_handle.state::<TauriSharedDesk>();
-            let mut desk = desk.0.lock().expect("Error while unwrapping shared desk");
-            let mut desk = desk
-                .as_mut()
+            let desk = desk.0.lock().expect("Error while unwrapping shared desk");
+            let desk = desk
+                .as_ref()
                 .expect("Desk should have been defined at this point");
 
             let cloned_desk = desk.clone();
             if let Some(shortcut_acc) = shortcutvalue {
-                shortcut_manager
-                    .register(shortcut_acc.as_str(), move || {
+                if shortcut_acc != "" {
+                    _ = shortcut_manager.register(shortcut_acc.as_str(), move || {
                         block_on(async {
                             loose_idasen::move_to_target(&cloned_desk, value)
                                 .await
                                 .unwrap();
                         });
-                    })
-                    .expect("Error while registering a shortcut");
+                    });
+                }
             }
 
             "success".to_string()
@@ -70,13 +70,8 @@ fn create_new_elem(
 
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
-async fn connect_to_desk_by_name(
-    name: String,
-    desk: tauri::State<'_, TauriSharedDesk>,
-    app_handle: tauri::AppHandle,
-) -> Result<(), ()> {
-    let config = config_utils::get_config();
-    loose_idasen::connect_to_desk_by_name_internal(name, &desk).await?;
+async fn connect_to_desk_by_name(name: String) -> Result<(), ()> {
+    loose_idasen::connect_to_desk_by_name_internal(name).await?;
 
     Ok(())
 }
@@ -92,8 +87,7 @@ fn main() {
     block_on(async {
         if let Some(local_name) = local_name.clone() {
             let cached_desk =
-                loose_idasen::connect_to_desk_by_name_internal(local_name.clone(), &initiated_desk)
-                    .await;
+                loose_idasen::connect_to_desk_by_name_internal(local_name.clone()).await;
             *initiated_desk.0.lock().unwrap() = Some(cached_desk.unwrap());
         }
     });
@@ -114,7 +108,7 @@ fn main() {
             let config = config_utils::get_or_create_config();
             let loc_name = &config.local_name;
             let window = app.get_window("main").unwrap();
-            if let Some(loc_name) = loc_name {
+            if let Some(_) = loc_name {
                 // If the user is returning(has a config) immidiately close the window, not to eat resources
                 window
                     .close()
@@ -136,13 +130,15 @@ fn main() {
                     // Each iteration needs it's own clone
                     let cloned_desk = desk.clone();
                     if let Some(shortcut_key) = &pos.shortcut {
-                        _ = shortcut_manager.register(shortcut_key.as_str(), move || {
-                            block_on(async {
-                                loose_idasen::move_to_target(&cloned_desk, pos.value)
-                                    .await
-                                    .unwrap();
+                        if shortcut_key != "" {
+                            _ = shortcut_manager.register(shortcut_key.as_str(), move || {
+                                block_on(async {
+                                    loose_idasen::move_to_target(&cloned_desk, pos.value)
+                                        .await
+                                        .unwrap();
+                                });
                             });
-                        });
+                        }
                     }
                 }
             } else {
@@ -180,7 +176,6 @@ fn main() {
                         .find(|pos| pos.position_elem.id_str == remaining_id)
                         .expect("Clicked element not found");
                     block_on(async {
-                        let target_height = found_elem.value;
                         let desk = app.state::<TauriSharedDesk>();
 
                         let desk = desk;
@@ -201,9 +196,7 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(move |app_handle, event| match event {
-            tauri::RunEvent::Ready => {
-                let config = config_utils::get_config();
-            }
+            tauri::RunEvent::Ready => {}
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
                 let config = config_utils::get_config();

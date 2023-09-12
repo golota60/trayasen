@@ -110,9 +110,11 @@ pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigDa
     let elem_to_unregister = conf.saved_positions.iter().find(|pos| pos_name == pos.name);
 
     if let Some(elem_to_unregister) = elem_to_unregister {
-        let shortcut = elem_to_unregister.shortcut.clone().unwrap();
-        if shortcut != "" {
-            _ = shortcut_manager.unregister(shortcut.as_str());
+        let shortcut = elem_to_unregister.shortcut.clone();
+        if let Some(shortcut) = shortcut {
+            if shortcut != "" {
+                _ = shortcut_manager.unregister(shortcut.as_str());
+            }
         }
     }
 

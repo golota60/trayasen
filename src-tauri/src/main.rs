@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+use btleplug::api::Peripheral as ApiPeripheral;
 use std::sync::Mutex;
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -92,7 +93,7 @@ async fn connect_to_desk_by_name(
 fn main() {
     let config = config_utils::get_or_create_config();
 
-    let desk = TauriSharedDesk(None.into());
+    let initiated_desk = TauriSharedDesk(None.into());
 
     // Get the desk before running the app if possible, so that user doesn't see any loading screens
     // instead app just starts up slower
@@ -100,8 +101,9 @@ fn main() {
     block_on(async {
         if let Some(local_name) = local_name.clone() {
             let cached_desk =
-                loose_idasen::connect_to_desk_by_name_internal(local_name.clone(), &desk).await;
-            *desk.0.lock().unwrap() = Some(cached_desk.unwrap());
+                loose_idasen::connect_to_desk_by_name_internal(local_name.clone(), &initiated_desk)
+                    .await;
+            *initiated_desk.0.lock().unwrap() = Some(cached_desk.unwrap());
         }
     });
 
@@ -116,21 +118,47 @@ fn main() {
             None,
         ))
         .system_tray(tray)
-        .manage(desk)
-        .setup(move |app| {
+        .manage(initiated_desk)
+        .setup(|app| {
+            let config = config_utils::get_or_create_config();
             let loc_name = &config.local_name;
             let window = app.get_window("main").unwrap();
             if let Some(loc_name) = loc_name {
                 window.close();
                 let mut shortcut_manager = app.global_shortcut_manager();
                 let all_positions = &config.saved_positions;
-                all_positions.iter().for_each(|pos| {
-                    if let Some(shortcut_key) = &pos.shortcut {
-                        shortcut_manager.register(shortcut_key.as_str(), || {
-                            println!("I should be moving");
-                        });
-                    }
+                let stat = app.state::<TauriSharedDesk>();
+
+                let mut desk = stat.0.lock().expect("Error while unwrapping shared desk");
+                let mut desk = desk
+                    .as_mut()
+                    .expect("Desk should have been defined at this point");
+
+                // block_on(async {
+                //     loose_idasen::move_to_target(desk, 7200).await;
+                // });
+                let cloned_desk = desk.clone();
+                shortcut_manager.register("Shift+1", move || {
+                    println!("I should be moving");
+                    block_on(async {
+                        loose_idasen::move_to_target(&cloned_desk, 10000).await;
+                    })
                 });
+
+                // for pos in all_positions.iter() {
+                //     if let Some(shortcut_key) = &pos.shortcut {
+                //         shortcut_manager.register(shortcut_key.as_str(), || {
+                //             println!("I should be moving");
+                //             block_on(async {
+                //                 loose_idasen::move_to_target(desk, pos.value).await;
+                //             })
+                //         });
+                //     }
+                // }
+
+                // all_positions.iter().for_each(|pos| {
+
+                // });
             } else {
                 window.show();
             };

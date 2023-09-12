@@ -3,22 +3,31 @@
     windows_subsystem = "windows"
 )]
 
-use std::{sync::Mutex, thread};
+use std::sync::Mutex;
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
-use serde::Serialize;
+use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
 mod config_utils;
 mod loose_idasen;
+mod tray_utils;
 
 #[derive(Default)]
-struct SharedDesk(Mutex<Option<PlatformPeripheral>>);
+pub struct TauriSharedDesk(Mutex<Option<PlatformPeripheral>>);
 
 #[tauri::command]
-fn create_new_elem(name: &str, value: u16) -> String {
+fn create_new_elem(
+    app_handle: tauri::AppHandle,
+    name: &str,
+    value: u16,
+    shortcutvalue: Option<String>,
+) -> String {
     let mut config = config_utils::get_config();
+    let mut shortcut_manager = app_handle.global_shortcut_manager();
+
+    println!("shortcut_acc: {:?}", shortcutvalue);
 
     let is_duplicate = config.saved_positions.iter().find(|elem| elem.name == name);
     match is_duplicate {
@@ -31,102 +40,59 @@ fn create_new_elem(name: &str, value: u16) -> String {
             config.saved_positions.push(config_utils::Position {
                 name: name.to_string(),
                 value,
+                shortcut: shortcutvalue.clone(),
             });
             config_utils::update_config(&config);
+
+            let desk = app_handle.state::<TauriSharedDesk>();
+            let desk = desk.0.lock().expect("Error while unwrapping shared desk");
+            let desk = desk
+                .as_ref()
+                .expect("Desk should have been defined at this point");
+
+            let cloned_desk = desk.clone();
+            if let Some(shortcut_acc) = shortcutvalue {
+                if shortcut_acc != "" {
+                    _ = shortcut_manager.register(shortcut_acc.as_str(), move || {
+                        block_on(async {
+                            loose_idasen::move_to_target(&cloned_desk, value)
+                                .await
+                                .unwrap();
+                        });
+                    });
+                }
+            }
 
             "success".to_string()
         }
     }
 }
 
-enum SavedDeskStates {
-    New,
-    Saved,
-}
-
-impl SavedDeskStates {
-    fn as_str(&self) -> &'static str {
-        match self {
-            SavedDeskStates::New => "new",
-            SavedDeskStates::Saved => "saved",
-        }
-    }
-}
-
-#[derive(Serialize, Debug)]
-struct PotentialDesk {
-    name: String,
-    status: String,
-}
-
-// https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
-/// Desk we're connecting to for UI info
-#[tauri::command]
-async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
-    let config = config_utils::get_or_create_config();
-    let desk_list = loose_idasen::get_list_of_desks(&config.local_name).await;
-    let desk_list_view = desk_list
-        .iter()
-        .map(|x| match config.local_name {
-            Some(_) => PotentialDesk {
-                name: x.name.to_string(),
-                status: SavedDeskStates::Saved.as_str().to_string(),
-            },
-            None => PotentialDesk {
-                name: x.name.to_string(),
-                status: SavedDeskStates::New.as_str().to_string(),
-            },
-        })
-        .collect::<Vec<PotentialDesk>>();
-
-    println!("Connecting to desk: {:?}", &desk_list_view);
-
-    Ok(desk_list_view)
-}
-
-async fn connect_to_desk_by_name_internal(
-    name: String,
-    desk: tauri::State<'_, SharedDesk>,
-) -> Result<(), ()> {
-    let desk_to_connect = loose_idasen::get_list_of_desks(&Some(name.clone()))
-        .await
-        .first()
-        .expect("Error while getting a desk to connect to")
-        .perp
-        .clone();
-    println!("after desk to connect!");
-
-    save_desk_name(&name).await;
-    println!("saved desk!");
-    loose_idasen::setup(&desk_to_connect).await;
-
-    println!("all set up!");
-    *desk.0.lock().unwrap() = Some(desk_to_connect);
-    println!("assigned and connected!");
-
-    Ok(())
-}
-
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
-async fn connect_to_desk_by_name(
-    name: String,
-    desk: tauri::State<'_, SharedDesk>,
-) -> Result<(), ()> {
-    connect_to_desk_by_name_internal(name, desk).await
-}
+async fn connect_to_desk_by_name(name: String) -> Result<(), ()> {
+    loose_idasen::connect_to_desk_by_name_internal(name).await?;
 
-async fn save_desk_name(name: &String) {
-    let new_local_name = name;
-    config_utils::save_local_name(new_local_name.clone());
+    Ok(())
 }
 
 fn main() {
     let config = config_utils::get_or_create_config();
 
-    println!("Loaded config: {:?}", config);
+    let initiated_desk = TauriSharedDesk(None.into());
 
+    // Get the desk before running the app if possible, so that user doesn't see any loading screens
+    // instead app just starts up slower
     let local_name = &config.local_name;
+    block_on(async {
+        if let Some(local_name) = local_name.clone() {
+            let cached_desk =
+                loose_idasen::connect_to_desk_by_name_internal(local_name.clone()).await;
+            *initiated_desk.0.lock().unwrap() = Some(cached_desk.unwrap());
+        }
+    });
+
+    println!("Loaded config: {:?}", config);
 
     let tray = config_utils::create_main_tray_menu(&config);
     let tray = SystemTray::new().with_menu(tray);
@@ -137,37 +103,50 @@ fn main() {
             None,
         ))
         .system_tray(tray)
-        .manage(SharedDesk(None.into()))
-        .setup(move |app| {
+        .manage(initiated_desk)
+        .setup(|app| {
+            let config = config_utils::get_or_create_config();
             let loc_name = &config.local_name;
-            // match loc_name {
-            //     // If saved name is defined, don't open the initial window
-            //     Some(e) => {
-                    // let win = app
-                    //     .get_window("main")
-                    //     .unwrap();
-                    // We need to connect to the desk from a javascript level(unfortunately)
-                    // win.show();
+            let window = app.get_window("main").unwrap();
+            if let Some(_) = loc_name {
+                // If the user is returning(has a config) immidiately close the window, not to eat resources
+                window
+                    .close()
+                    .expect("Error while closing the initial window");
+                let mut shortcut_manager = app.global_shortcut_manager();
+                let all_positions = &config.saved_positions;
+                let desk_state = app.state::<TauriSharedDesk>();
 
-                    // println!(
-                    //     "config found. closing main window. name: {:?}",
-                    //     e.to_string()
-                    // );
+                let desk = desk_state
+                    .0
+                    .lock()
+                    .expect("Error while unwrapping shared desk");
+                let desk = desk
+                    .as_ref()
+                    .expect("Desk should have been defined at this point");
 
-                    // block_on(async {
-                    //     connect_to_desk_by_name_internal(e.to_string(), app.state::<SharedDesk>())
-                    //         .await;
-                    // });
-                    // println!("after connect by name");
+                let cloned_pos = all_positions.clone();
+                for pos in cloned_pos.into_iter() {
+                    // Each iteration needs it's own clone
+                    let cloned_desk = desk.clone();
+                    if let Some(shortcut_key) = &pos.shortcut {
+                        if shortcut_key != "" {
+                            _ = shortcut_manager.register(shortcut_key.as_str(), move || {
+                                block_on(async {
+                                    loose_idasen::move_to_target(&cloned_desk, pos.value)
+                                        .await
+                                        .unwrap();
+                                });
+                            });
+                        }
+                    }
+                }
+            } else {
+                window
+                    .show()
+                    .expect("Error while trying to show the window");
+            };
 
-            //     }
-            //     None => {
-            //         let win = app
-            //             .get_window("main")
-            //             .expect("Error while getting main window window on init");
-            //         win.show();
-            //     }
-            // }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -175,83 +154,21 @@ fn main() {
             config_utils::get_config,
             config_utils::remove_position,
             config_utils::remove_config,
-            get_desk_to_connect,
+            loose_idasen::get_desk_to_connect,
             connect_to_desk_by_name,
         ])
         .enable_macos_default_menu(false)
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-                config_utils::QUIT_ID => {
-                    std::process::exit(0);
-                }
-                config_utils::ABOUT_ID => {
-                    match tauri::WindowBuilder::new(
-                        app,
-                        "main",
-                        tauri::WindowUrl::App("index.html".into()),
-                    )
-                    .always_on_top(true)
-                    .initialization_script(
-                        r#"
-                    history.replaceState({}, '','/about');
-                    "#,
-                    )
-                    .title("Trayasen - About/Options")
-                    .build()
-                    {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("Error while trying to open about window");
-                        }
-                    }
-                }
-                config_utils::ADD_POSITION_ID => {
-                    match tauri::WindowBuilder::new(
-                        app,
-                        "main",
-                        tauri::WindowUrl::App("index.html".into()),
-                    )
-                    .always_on_top(true)
-                    .initialization_script(
-                        r#"
-                    history.replaceState({}, '','/new-position');
-                    "#,
-                    )
-                    .title("Trayasen - Add position")
-                    .build()
-                    {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("Error while trying to open new postition window");
-                        }
-                    }
-                }
+                config_utils::QUIT_ID => tray_utils::handle_exit_menu_click(),
+                config_utils::ABOUT_ID => tray_utils::handle_about_menu_click(app),
+                config_utils::ADD_POSITION_ID => tray_utils::handle_new_position_menu_click(app),
                 config_utils::MANAGE_POSITIONS_ID => {
-                    match tauri::WindowBuilder::new(
-                        app,
-                        "main",
-                        tauri::WindowUrl::App("index.html".into()),
-                    )
-                    .always_on_top(true)
-                    .initialization_script(
-                        r#"
-                    history.replaceState({}, '','/manage-positions');
-                    "#,
-                    )
-                    .title("Trayasen - Manage positions")
-                    .build()
-                    {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("Error while trying to open manage positions window");
-                        }
-                    }
+                    tray_utils::handle_manage_positions_menu_click(app)
                 }
-                // Means a position name has been clicked
+                // If event is not one of predefined, assume a position has been clicked
                 remaining_id => {
-                    // Check whether a position has been clicked
                     // Get config one more time, in case there's a new position added since intialization
-                    println!("something has been clicked");
                     let config = config_utils::get_config();
                     let updated_menus = config_utils::get_menu_items_from_config(&config);
                     let found_elem = updated_menus
@@ -259,30 +176,32 @@ fn main() {
                         .find(|pos| pos.position_elem.id_str == remaining_id)
                         .expect("Clicked element not found");
                     block_on(async {
-                        let target_height = found_elem.value;
-                        let state = app.state::<SharedDesk>();
+                        let desk = app.state::<TauriSharedDesk>();
 
-                        let desk = state;
+                        let desk = desk;
                         let desk = desk.0.lock();
                         let desk = desk.expect("Error while unwrapping shared desk");
                         let desk = desk
                             .as_ref()
                             .expect("Desk should have been defined at this point");
 
-                        loose_idasen::move_to_target(desk, found_elem.value).await;
-                    })
+                        loose_idasen::move_to_target(desk, found_elem.value)
+                            .await
+                            .unwrap();
+                    });
                 }
             },
             _ => {}
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(move |_app_handle, event| match event {
+        .run(move |app_handle, event| match event {
+            tauri::RunEvent::Ready => {}
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
                 let config = config_utils::get_config();
                 let main_menu = config_utils::create_main_tray_menu(&config);
-                _app_handle
+                app_handle
                     .tray_handle()
                     .set_menu(main_menu)
                     .expect("Error whilst unwrapping main menu");
@@ -291,6 +210,4 @@ fn main() {
             }
             _ => {}
         });
-
-    println!("after create");
 }

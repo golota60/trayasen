@@ -19,14 +19,15 @@ const ManagePositionsPage = () => {
         Manage positions
       </h1>
       <div className="h-80 max-w-md overflow-scroll  overflow-x-hidden">
-        <table className="grid grid-cols-[2fr_2fr_1fr] text-left gap-x-3">
+        <table className="grid grid-cols-[2fr_2fr_2fr_1fr] text-left gap-x-3">
           <thead className="contents">
             <th className="sticky top-0 bg-slate-800">Name</th>
             <th className="sticky top-0 bg-slate-800">Height</th>
+            <th className="sticky top-0 bg-slate-800">Shortcut</th>
             <th className="sticky top-0 bg-slate-800">Actions</th>
           </thead>
           {data?.saved_positions
-            ? data?.saved_positions.map(({ name, value }) => (
+            ? data?.saved_positions.map(({ name, value, shortcut }) => (
                 <tbody className="contents" key={name}>
                   {/**
                    * TODO: Add a tooltip or some shit
@@ -35,6 +36,7 @@ const ManagePositionsPage = () => {
                     {name}
                   </td>
                   <td className="h-8">{value}</td>
+                  <td className="h-8">{shortcut}</td>
                   <td className="h-8 flex flex-row-reverse">
                     <img
                       onClick={async () => {

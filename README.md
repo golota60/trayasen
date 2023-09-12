@@ -49,7 +49,7 @@ Connect to the desk using your system bluetooth control. After this, everything 
 If you want to reset your config go into `About/Options` menu and you should see a config reset button. In case you cannot do that, delete the configuration file, path of which you can find below.
 
 
-If you encounter any problems that were not explained anywhere in this README, feel free to open an issue describing your problem. If you wish to inspect the config file, below are the locations.
+If you encounter any problems that were not explained anywhere in this README, feel free to open an issue describing your problem. If you wish to inspect the config file, below are the locations for every system.
 
 - MacOS
 

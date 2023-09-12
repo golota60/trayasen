@@ -39,7 +39,7 @@ export const createNewElem = async (
   return await invoke("create_new_elem", {
     name,
     value: Number(value),
-    shortcutvalue,
+    shortcutvalue: shortcutvalue !== "" ? shortcutvalue : undefined,
   });
 };
 

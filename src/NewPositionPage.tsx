@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { appWindow } from "@tauri-apps/api/window";
 import { Button } from "./generic/button";
 import { Input } from "./generic/input";

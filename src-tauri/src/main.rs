@@ -3,7 +3,6 @@
     windows_subsystem = "windows"
 )]
 
-use btleplug::api::Peripheral as ApiPeripheral;
 use std::sync::Mutex;
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -26,7 +25,7 @@ fn create_new_elem(
     shortcutvalue: Option<String>,
 ) -> String {
     let mut config = config_utils::get_config();
-    let mut shortcut = app_handle.global_shortcut_manager();
+    let mut shortcut_manager = app_handle.global_shortcut_manager();
 
     println!("shortcut_acc: {:?}", shortcutvalue);
 
@@ -45,13 +44,23 @@ fn create_new_elem(
             });
             config_utils::update_config(&config);
 
-            match shortcutvalue {
-                Some(val) => {
-                    shortcut.register(val.as_str(), || {
-                        println!("I should be moving");
-                    });
-                }
-                _ => {}
+            let desk = app_handle.state::<TauriSharedDesk>();
+            let mut desk = desk.0.lock().expect("Error while unwrapping shared desk");
+            let mut desk = desk
+                .as_mut()
+                .expect("Desk should have been defined at this point");
+
+            let cloned_desk = desk.clone();
+            if let Some(shortcut_acc) = shortcutvalue {
+                shortcut_manager
+                    .register(shortcut_acc.as_str(), move || {
+                        block_on(async {
+                            loose_idasen::move_to_target(&cloned_desk, value)
+                                .await
+                                .unwrap();
+                        });
+                    })
+                    .expect("Error while registering a shortcut");
             }
 
             "success".to_string()
@@ -67,25 +76,7 @@ async fn connect_to_desk_by_name(
     app_handle: tauri::AppHandle,
 ) -> Result<(), ()> {
     let config = config_utils::get_config();
-    // let mut shortcut_manager = app_handle.global_shortcut_manager();
-    let x = loose_idasen::connect_to_desk_by_name_internal(name, &desk)
-        .await
-        .unwrap();
-
-    // *desk.0.lock().unwrap() = Some(x);
-
-    // // After connecting, register shortcuts
-    //                 // TODO: REPORT ALL SHORTCUTS HERE
-    //                 let positions = config.saved_positions;
-    //                 for pos in positions.iter() {
-    //                     let shortcut_value = pos.shortcut.clone();
-    //                     if let Some(shortcut_value) = shortcut_value {
-    //                         shortcut_manager.register(shortcut_value.as_str(), || {
-    //                             connect_to_desk_by_name_internal(config.local_name.clone().unwrap().to_string(), desk);
-    //                         });
-    //                     }
-    //                 };
-    //                 x
+    loose_idasen::connect_to_desk_by_name_internal(name, &desk).await?;
 
     Ok(())
 }
@@ -124,7 +115,10 @@ fn main() {
             let loc_name = &config.local_name;
             let window = app.get_window("main").unwrap();
             if let Some(loc_name) = loc_name {
-                window.close();
+                // If the user is returning(has a config) immidiately close the window, not to eat resources
+                window
+                    .close()
+                    .expect("Error while closing the initial window");
                 let mut shortcut_manager = app.global_shortcut_manager();
                 let all_positions = &config.saved_positions;
                 let stat = app.state::<TauriSharedDesk>();
@@ -134,33 +128,26 @@ fn main() {
                     .as_mut()
                     .expect("Desk should have been defined at this point");
 
-                // block_on(async {
-                //     loose_idasen::move_to_target(desk, 7200).await;
-                // });
-                let cloned_desk = desk.clone();
-                shortcut_manager.register("Shift+1", move || {
-                    println!("I should be moving");
-                    block_on(async {
-                        loose_idasen::move_to_target(&cloned_desk, 10000).await;
-                    })
-                });
-
-                // for pos in all_positions.iter() {
-                //     if let Some(shortcut_key) = &pos.shortcut {
-                //         shortcut_manager.register(shortcut_key.as_str(), || {
-                //             println!("I should be moving");
-                //             block_on(async {
-                //                 loose_idasen::move_to_target(desk, pos.value).await;
-                //             })
-                //         });
-                //     }
-                // }
-
-                // all_positions.iter().for_each(|pos| {
-
-                // });
+                let cloned_pos = all_positions.clone();
+                for pos in cloned_pos.into_iter() {
+                    // Each iteration needs it's own clone
+                    let cloned_desk = desk.clone();
+                    if let Some(shortcut_key) = &pos.shortcut {
+                        shortcut_manager
+                            .register(shortcut_key.as_str(), move || {
+                                block_on(async {
+                                    loose_idasen::move_to_target(&cloned_desk, pos.value)
+                                        .await
+                                        .unwrap();
+                                });
+                            })
+                            .expect("Error while registering a shortcut");
+                    }
+                }
             } else {
-                window.show();
+                window
+                    .show()
+                    .expect("Error while trying to show the window");
             };
 
             Ok(())
@@ -185,7 +172,6 @@ fn main() {
                 // If event is not one of predefined, assume a position has been clicked
                 remaining_id => {
                     // Get config one more time, in case there's a new position added since intialization
-                    println!("something has been clicked");
                     let config = config_utils::get_config();
                     let updated_menus = config_utils::get_menu_items_from_config(&config);
                     let found_elem = updated_menus
@@ -203,8 +189,10 @@ fn main() {
                             .as_ref()
                             .expect("Desk should have been defined at this point");
 
-                        loose_idasen::move_to_target(desk, found_elem.value).await;
-                    })
+                        loose_idasen::move_to_target(desk, found_elem.value)
+                            .await
+                            .unwrap();
+                    });
                 }
             },
             _ => {}

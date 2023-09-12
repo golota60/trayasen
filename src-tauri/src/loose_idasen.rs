@@ -334,7 +334,7 @@ pub async fn connect_to_desk_by_name_internal(
 
     config_utils::save_local_name(name);
     println!("saved desk!");
-    setup_bt_desk_device(&desk_to_connect).await;
+    let _ = setup_bt_desk_device(&desk_to_connect).await;
 
     Ok(desk_to_connect)
 }

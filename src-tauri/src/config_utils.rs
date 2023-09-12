@@ -137,7 +137,7 @@ pub fn update_config(updated_config: &ConfigData) {
 pub fn remove_config() {
     let config_path = get_config_path().trim_end().to_string();
 
-    remove_file(config_path);
+    let _ = remove_file(config_path);
 }
 
 pub struct MenuConfigItem {

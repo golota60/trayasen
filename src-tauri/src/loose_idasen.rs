@@ -118,6 +118,7 @@ pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeriphe
             desks
         }
     };
+    // TODO: try 3 times before erroring
     let desks = desks.expect("Error while getting a list of desks");
 
     desks

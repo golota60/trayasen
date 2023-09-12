@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { appWindow } from "@tauri-apps/api/window";
 import { Button } from "./generic/button";
 import { Input } from "./generic/input";
@@ -6,6 +6,7 @@ import { MAX_HEIGHT, MIN_HEIGHT } from "./utils";
 import { createNewElem } from "./rustUtils";
 import { Label } from "./generic/label";
 
+// Maps browser keys into accelerator keys
 const modifierMap = new Map<string, string>([
   ["Command", "Cmd"],
   ["Control", "Ctrl"],
@@ -17,6 +18,8 @@ const modifierMap = new Map<string, string>([
   ["Meta", "Meta"],
 ]);
 
+// Utility to change SUPER+value into just value. Useful for creating SHIFT+<key> shortcuts
+// Cause if you really think about it, when you input Shift+1, you're just typing "!" and we need to avoid you doing that.
 const lowercaseMap = new Map<string, string>([
   ["!", "1"],
   ["@", "2"],
@@ -57,24 +60,46 @@ const NewPositionPage = () => {
   const [name, setName] = useState<string>("");
   const [value, setValue] = useState<string>("7200");
   const [error, setError] = useState<string | undefined>();
-  const [shortcutValue, setShortcutValue] = useState<string | undefined>("");
+  const [shortcutValue, setShortcutValue] = useState<string>("");
   console.log(shortcutValue);
   const [keystrokeText, setKeystrokeText] = useState<
     string | KeystoreStatusTexts
   >(KeystoreStatusTexts.init);
 
-  const keystrokeHandler = (e: KeyboardEvent) => {
+  const keystrokeHandler: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
     if (e.defaultPrevented) {
       return;
     }
-    const key = lowercaseMap.get(e.key) || e.key;
-    const keyCode = e.code;
-    console.log(key, keyCode);
+    console.log(keystrokeText);
+    if (keystrokeText !== KeystoreStatusTexts.capturing) {
+      return;
+    }
+    const clickedKey = lowercaseMap.get(e.key) || e.key;
 
-    const isModifierKey = modifierMap.get(key);
+    const isModifierKey = modifierMap.get(clickedKey);
     if (isModifierKey) {
+      const existingModifiers = shortcutValue.split("+");
+      // We want to avoid "Shift + Shift" modifiers
+      const isTwoSameModifiers =
+        existingModifiers.length === 1 && existingModifiers[0] === clickedKey;
+      // Max 2 modifiers supported
+      const isMaxTwoModifiers = existingModifiers.length > 1;
+
+      console.log(
+        isTwoSameModifiers,
+        isMaxTwoModifiers,
+        existingModifiers,
+        clickedKey
+      );
+      console.log("end click");
+      if (isTwoSameModifiers || isMaxTwoModifiers) {
+        // Restart the shortcut
+        setShortcutValue(clickedKey);
+
+        return;
+      }
       setShortcutValue((prevValue) => {
-        const newVal = prevValue ? `${prevValue}+${key}` : key;
+        const newVal = prevValue ? `${prevValue}+${clickedKey}` : clickedKey;
         return newVal;
       });
       return;
@@ -82,12 +107,10 @@ const NewPositionPage = () => {
     // Is normal key
     // If previous value(modifier) exists, append, otherwise take as-is
     setShortcutValue((prevValue) => {
-      const newVal = prevValue ? `${prevValue}+${key}` : key;
+      const newVal = prevValue ? `${prevValue}+${clickedKey}` : clickedKey;
       setKeystrokeText(newVal);
       return newVal;
     });
-
-    window.removeEventListener("keydown", keystrokeHandler, true);
 
     e.preventDefault();
   };
@@ -95,8 +118,6 @@ const NewPositionPage = () => {
   const handleRegisterKeyClick = () => {
     setShortcutValue("");
     setKeystrokeText(KeystoreStatusTexts.capturing);
-
-    window.addEventListener("keydown", keystrokeHandler, true);
   };
 
   const handleChangeName = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +135,10 @@ const NewPositionPage = () => {
   return (
     <>
       <img src="/carrot.png" alt="A carrot logo" />
-      <div className="flex justify-center flex-col">
+      <div
+        className="flex justify-center flex-col"
+        onKeyDown={keystrokeHandler}
+      >
         <h1
           className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
  mt-2 mb-3"

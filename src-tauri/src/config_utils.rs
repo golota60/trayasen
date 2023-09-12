@@ -5,8 +5,11 @@ use std::{
     io::Write,
 };
 use tauri::{
-    api::path::data_dir, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu,
+    api::path::data_dir, CustomMenuItem, GlobalShortcutManager, Manager, SystemTrayMenu,
+    SystemTrayMenuItem, SystemTraySubmenu,
 };
+
+use crate::TauriSharedDesk;
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 
@@ -102,14 +105,35 @@ pub fn save_local_name(new_local_name: String) {
 }
 
 #[tauri::command]
-pub fn remove_position(pos_name: &str) -> ConfigData {
+pub fn remove_position(
+    app_handle: tauri::AppHandle,
+    desk: tauri::State<'_, TauriSharedDesk>,
+    pos_name: &str,
+) -> ConfigData {
+    let desk = desk.0.lock().expect("Error while unwrapping shared desk");
+    let desk = desk
+        .as_ref()
+        .expect("Desk should have been defined at this point");
+    let mut shortcut_manager = app_handle.global_shortcut_manager();
     let mut conf = get_config();
+
+    let elem_to_unregister = conf.saved_positions.iter().find(|pos| pos_name == pos.name);
+
+    println!(
+        "elem to unregister {:?}, {:?}, {:?}",
+        elem_to_unregister, conf.saved_positions, pos_name
+    );
+    if let Some(elem_to_unregister) = elem_to_unregister {
+        _ = shortcut_manager.unregister(elem_to_unregister.shortcut.clone().unwrap().as_str());
+    }
+
     let new_conf_positions = conf
         .saved_positions
         .into_iter()
         .filter(|pos| pos.name != pos_name)
         .collect();
     conf.saved_positions = new_conf_positions;
+
     update_config(&conf);
     conf
 }

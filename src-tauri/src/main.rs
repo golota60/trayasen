@@ -121,11 +121,14 @@ fn main() {
                     .expect("Error while closing the initial window");
                 let mut shortcut_manager = app.global_shortcut_manager();
                 let all_positions = &config.saved_positions;
-                let stat = app.state::<TauriSharedDesk>();
+                let desk_state = app.state::<TauriSharedDesk>();
 
-                let mut desk = stat.0.lock().expect("Error while unwrapping shared desk");
-                let mut desk = desk
-                    .as_mut()
+                let desk = desk_state
+                    .0
+                    .lock()
+                    .expect("Error while unwrapping shared desk");
+                let desk = desk
+                    .as_ref()
                     .expect("Desk should have been defined at this point");
 
                 let cloned_pos = all_positions.clone();
@@ -133,15 +136,13 @@ fn main() {
                     // Each iteration needs it's own clone
                     let cloned_desk = desk.clone();
                     if let Some(shortcut_key) = &pos.shortcut {
-                        shortcut_manager
-                            .register(shortcut_key.as_str(), move || {
-                                block_on(async {
-                                    loose_idasen::move_to_target(&cloned_desk, pos.value)
-                                        .await
-                                        .unwrap();
-                                });
-                            })
-                            .expect("Error while registering a shortcut");
+                        _ = shortcut_manager.register(shortcut_key.as_str(), move || {
+                            block_on(async {
+                                loose_idasen::move_to_target(&cloned_desk, pos.value)
+                                    .await
+                                    .unwrap();
+                            });
+                        });
                     }
                 }
             } else {
@@ -202,10 +203,6 @@ fn main() {
         .run(move |app_handle, event| match event {
             tauri::RunEvent::Ready => {
                 let config = config_utils::get_config();
-                let mut shortcut_manager = app_handle.global_shortcut_manager();
-                // let desk = app_handle.state::<SharedDesk>();
-
-                // TODO: HANDLE DUPLICATED SHORTCUTS
             }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.

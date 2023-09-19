@@ -38,7 +38,7 @@ From my experience, in order to connect to the desk I had to first connect the d
 
 ### MacOS
 
-Desk should NOT be connected to the system while opening the app. This is a weird quirk of MacOS that I'll look into fixing in the future. Also, since I'm not a signed Apple developer, you might get a prompt saying that the app can be opened - [here's how to bypass that](https://support.apple.com/en-us/HT202491).
+Desk should NOT be connected to the system while opening the app. This is a weird quirk of MacOS that I'll look into fixing in the future. Also, since I'm not a signed Apple developer, you might get a prompt saying that the app can be opened - [here's how to bypass that](https://apple.stackexchange.com/a/267555).
 
 ### Linux
 
@@ -69,7 +69,7 @@ If you encounter any problems that were not explained anywhere in this README, f
  C:\\Users\\<your_profile_name>\\AppData\\Roaming/idasen-tray-config.json
 ```
 
-**Important** - If you changed your desk device name, you'll also need to restet the config.
+**Important** - If you changed your desk device name, you'll also need to reset the config.
 
 ## Self-compiling
 
@@ -86,7 +86,7 @@ Frontend is using [shadcn/ui](https://ui.shadcn.com/) for styling
 
 ## Releasing
 
-The release is automatically triggered upon push to the `release` branch. In order to release, simply create commit that bumps up version in `tauri.conf.json` in master, then create a `release` branch that mirrors `master` branch. After the pipeline finishes - there should be a draft release create it. Then simply navigate to "Releases" and release the draft.
+The release is automatically triggered upon push to the `release` branch. In order to release, simply create commit that bumps up version in `tauri.conf.json`/`Cargo.toml`/`package.json` in master, then create a `release` branch that mirrors `master` branch. After the pipeline finishes - there should be a draft release create it. Then simply navigate to "Releases" and release the draft.
 
 ## Roadmap, known issues and feature requests
 

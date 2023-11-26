@@ -10,6 +10,8 @@ use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
+use crate::config_utils::ConfigData;
+
 mod config_utils;
 mod loose_idasen;
 mod tray_utils;
@@ -78,11 +80,11 @@ async fn connect_to_desk_by_name(name: String) -> Result<(), ()> {
 
 fn main() {
     let config = config_utils::get_or_create_config();
-
     let initiated_desk = TauriSharedDesk(None.into());
 
-    // Get the desk before running the app if possible, so that user doesn't see any loading screens
-    // instead app just starts up slower
+    /*
+    If there is a desk name present already, do not bother the end user with windows opening/loading. Just connect to his desk.
+    */
     let local_name = &config.local_name;
     block_on(async {
         if let Some(local_name) = local_name.clone() {
@@ -94,29 +96,39 @@ fn main() {
 
     println!("Loaded config: {:?}", config);
 
-    let tray = config_utils::create_main_tray_menu(&config);
-    let tray = SystemTray::new().with_menu(tray);
+    let tray_skeleton = config_utils::create_main_tray_menu(&config);
+    let tray = SystemTray::new().with_menu(tray_skeleton);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             None,
         ))
+        // Pass the tray instance to tauri to manage
         .system_tray(tray)
+        // Pass the desk instance to tauri to manage
         .manage(initiated_desk)
+        // Pass the previously instantiates config. We ideally want to read fs only once.
+        .manage(config)
         .setup(|app| {
-            let config = config_utils::get_or_create_config();
+            /*
+                On setup, we only wanna bail early if we're already connected
+                and register all the shortcuts
+            */
+            let config = app.state::<ConfigData>();
+
             let loc_name = &config.local_name;
             let window = app.get_window("main").unwrap();
+
             if let Some(_) = loc_name {
                 // If the user is returning(has a config) immidiately close the window, not to eat resources
+                // And then proceed to try to connect to the provided desk name.
                 window
                     .close()
                     .expect("Error while closing the initial window");
-                let mut shortcut_manager = app.global_shortcut_manager();
-                let all_positions = &config.saved_positions;
                 let desk_state = app.state::<TauriSharedDesk>();
 
+                // We expect the desk to already exist at this point, since if loc_name, the first thing we do in the app is connect
                 let desk = desk_state
                     .0
                     .lock()
@@ -125,9 +137,12 @@ fn main() {
                     .as_ref()
                     .expect("Desk should have been defined at this point");
 
+                // Register all shortcuts
+                let mut shortcut_manager = app.global_shortcut_manager();
+                let all_positions = &config.saved_positions;
                 let cloned_pos = all_positions.clone();
                 for pos in cloned_pos.into_iter() {
-                    // Each iteration needs it's own clone
+                    // Each iteration needs it's own clone; we do not want to consume the app state
                     let cloned_desk = desk.clone();
                     if let Some(shortcut_key) = &pos.shortcut {
                         if shortcut_key != "" {
@@ -149,6 +164,7 @@ fn main() {
 
             Ok(())
         })
+        // Pass functions invokable on frontend
         .invoke_handler(tauri::generate_handler![
             create_new_elem,
             config_utils::get_config,
@@ -158,6 +174,7 @@ fn main() {
             connect_to_desk_by_name,
         ])
         .enable_macos_default_menu(false)
+        // Register all the tray events, eg. clicks and stuff
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 config_utils::QUIT_ID => tray_utils::handle_exit_menu_click(),
@@ -197,8 +214,15 @@ fn main() {
         .expect("error while running tauri application")
         .run(move |app_handle, event| match event {
             tauri::RunEvent::Ready => {}
+            /*
+                Exit requested, might mean that a new position has been added.
+                This is troublesome; since all the positions are actually system tray elements, we need to re-instantiate it
+                So, when we detected an exit requested, just to be safe, refresh the system tray.
+                TODO: We should probably have a way of checking for new elements, to remove redundant system tray refreshes
+            */
             tauri::RunEvent::ExitRequested { api, .. } => {
                 // Exit requested might mean that a new element has been added.
+                println!("Exit requested");
                 let config = config_utils::get_config();
                 let main_menu = config_utils::create_main_tray_menu(&config);
                 app_handle
@@ -206,6 +230,7 @@ fn main() {
                     .set_menu(main_menu)
                     .expect("Error whilst unwrapping main menu");
 
+                // Do not actually exit the app
                 api.prevent_exit();
             }
             _ => {}

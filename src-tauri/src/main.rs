@@ -10,8 +10,6 @@ use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
-use crate::config_utils::ConfigData;
-
 mod config_utils;
 mod loose_idasen;
 mod tray_utils;
@@ -115,7 +113,7 @@ fn main() {
                 On setup, we only wanna bail early if we're already connected
                 and register all the shortcuts
             */
-            let config = app.state::<ConfigData>();
+            let config = app.state::<config_utils::ConfigData>();
 
             let loc_name = &config.local_name;
             let window = app.get_window("main").unwrap();

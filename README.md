@@ -90,31 +90,4 @@ The release is automatically triggered upon push to the `release` branch. In ord
 
 ## Roadmap, known issues and feature requests
 
-Roadmap(w/o order):
-
-- [x] Create config file if not present
-- [x] Drop MAC address requirement; add some better way - replaced with device name
-- [x] Auto save MAC address upon first connection to be reused later
-- [x] Adding new desk positions
-- [x] Deleting desk positions
-- [x] Windows support
-- [x] MacOS support
-- [x] Nicer icon
-- [x] Better input window decorator- no need imo
-- [x] Better desk moving behavior(currently it moves weirdly, due to usage of external lib)
-- [x] More information inside README + potential problems
-- [ ] Better tests
-- [x] Run on system startup
-- [x] Display a setup screen instead of automatic connection for better UX
-- [x] Allow for config reset from inside the app
-- [ ] Add options(low/high perf mode, system startup toggle)
-- [ ] ~Automatic update prompts(?)~ who would want their desk manager app to connect to the internet
-- [x] Automatic deploys
-- [ ] low/high perf mode
-
-Known issues(checked means fixed):
-
-- [x] Clicking on newly added element
-- [ ] Manually stopping a moving desk deadlocks the app
-- [x] Opening a new window while the other is already open
-- [ ] Race condition when moving the desk right after opening the app
+Roadmap and issues are tracked in the [issues](https://github.com/golota60/trayasen/issues) and [project tracker](https://github.com/users/golota60/projects/3) respectively.

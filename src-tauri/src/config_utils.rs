@@ -182,6 +182,9 @@ pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
         .collect::<Vec<MenuConfigItem>>()
 }
 
+/**
+Utility function returning the tray menu instance, based on the provided config
+*/
 pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
     let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
     let manage_positions_item =

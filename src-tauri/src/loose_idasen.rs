@@ -348,7 +348,9 @@ pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, String> {
 }
 
 pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {
+    println!("meet me startway");
     let desk_to_connect = get_list_of_desks(&Some(name.clone())).await?;
+    println!("meet me halfway");
     let desk_to_connect = desk_to_connect
         .into_iter()
         .next()
@@ -364,7 +366,7 @@ pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPe
     let bt = setup_bt_desk_device(&desk_to_connect).await;
 
     let bt_ok = match bt {
-        Ok(Val) => Val,
+        Ok(val) => val,
         Err(asd) => {
             println!("{:?}", asd);
             panic!("asd");

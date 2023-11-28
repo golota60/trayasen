@@ -4,7 +4,12 @@ import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
 import ManagePositionsPage from "./ManagePositionsPage";
 
+const ErrorPage = () => {
+  return <div>error!</div>;
+};
+
 const routeConfig: RouteConfig = [
+  { path: "/error", Component: ErrorPage },
   { path: "/about", Component: AboutPage },
   { path: "/new-position", Component: NewPositionPage },
   { path: "/manage-positions", Component: ManagePositionsPage },

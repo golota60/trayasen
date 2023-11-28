@@ -10,6 +10,8 @@ use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
+use crate::tray_utils::handle_error_window_show;
+
 mod config_utils;
 mod loose_idasen;
 mod tray_utils;
@@ -86,10 +88,14 @@ fn main() {
     let local_name = &config.local_name;
     block_on(async {
         if let Some(local_name) = local_name.clone() {
-            let cached_desk =
-                loose_idasen::connect_to_desk_by_name_internal(local_name.clone()).await;
-            let cached_desk = cached_desk.expect("Cannot connect to desk");
-            *initiated_desk.0.lock().unwrap() = Some(cached_desk);
+            let cached_desk = loose_idasen::connect_to_desk_by_name_internal(local_name.clone())
+                .await
+                .ok();
+
+            *initiated_desk
+                .0
+                .lock()
+                .expect("Failed to deref mutex during instantiation") = cached_desk;
         }
     });
 
@@ -120,11 +126,6 @@ fn main() {
             let window = app.get_window("main").unwrap();
 
             if let Some(_) = loc_name {
-                // If the user is returning(has a config) immidiately close the window, not to eat resources
-                // And then proceed to try to connect to the provided desk name.
-                window
-                    .close()
-                    .expect("Error while closing the initial window");
                 let desk_state = app.state::<TauriSharedDesk>();
 
                 // We expect the desk to already exist at this point, since if loc_name, the first thing we do in the app is connect
@@ -132,27 +133,62 @@ fn main() {
                     .0
                     .lock()
                     .expect("Error while unwrapping shared desk");
-                let desk = desk
-                    .as_ref()
-                    .expect("Desk should have been defined at this point");
-
-                // Register all shortcuts
-                let mut shortcut_manager = app.global_shortcut_manager();
-                let all_positions = &config.saved_positions;
-                let cloned_pos = all_positions.clone();
-                for pos in cloned_pos.into_iter() {
-                    // Each iteration needs it's own clone; we do not want to consume the app state
-                    let cloned_desk = desk.clone();
-                    if let Some(shortcut_key) = &pos.shortcut {
-                        if shortcut_key != "" {
-                            _ = shortcut_manager.register(shortcut_key.as_str(), move || {
-                                block_on(async {
-                                    loose_idasen::move_to_target(&cloned_desk, pos.value)
-                                        .await
-                                        .unwrap();
-                                });
-                            });
+                let desk = desk.as_ref();
+                match desk {
+                    /*
+                        If the user is returning(has a config) immidiately close the window, not to eat resources
+                        And then proceed to try to create the menu.
+                    */
+                    Some(desk) => {
+                        window
+                            .close()
+                            .expect("Error while closing the initial window");
+                        // Register all shortcuts
+                        let mut shortcut_manager = app.global_shortcut_manager();
+                        let all_positions = &config.saved_positions;
+                        let cloned_pos = all_positions.clone();
+                        for pos in cloned_pos.into_iter() {
+                            // Each iteration needs it's own clone; we do not want to consume the app state
+                            let cloned_desk = desk.clone();
+                            if let Some(shortcut_key) = &pos.shortcut {
+                                if shortcut_key != "" {
+                                    _ = shortcut_manager.register(
+                                        shortcut_key.as_str(),
+                                        move || {
+                                            block_on(async {
+                                                loose_idasen::move_to_target(
+                                                    &cloned_desk,
+                                                    pos.value,
+                                                )
+                                                .await
+                                                .unwrap();
+                                            });
+                                        },
+                                    );
+                                }
+                            }
                         }
+                    }
+                    None => {
+                        /*
+                        If the desk name is defined, but we've got no desk instance at this point,
+                        it means that we've failed to connect to the desk previously
+                         */
+
+                        // Open error window with the error
+                        // window.sh
+                        // handle_error_window_show(&app.app_handle());
+
+                        println!("setting the path!");
+
+                        window
+                            .show()
+                            .expect("Error while trying to show the window");
+                        _ = window.eval(
+                            r#"
+                        history.replaceState({}, '','/error');
+                        "#,
+                        );
                     }
                 }
             } else {

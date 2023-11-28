@@ -71,7 +71,7 @@ fn create_new_elem(
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
 async fn connect_to_desk_by_name(name: String) -> Result<(), ()> {
-    loose_idasen::connect_to_desk_by_name_internal(name).await?;
+    _ = loose_idasen::connect_to_desk_by_name_internal(name).await;
 
     Ok(())
 }
@@ -88,7 +88,8 @@ fn main() {
         if let Some(local_name) = local_name.clone() {
             let cached_desk =
                 loose_idasen::connect_to_desk_by_name_internal(local_name.clone()).await;
-            *initiated_desk.0.lock().unwrap() = Some(cached_desk.unwrap());
+            let cached_desk = cached_desk.expect("Cannot connect to desk");
+            *initiated_desk.0.lock().unwrap() = Some(cached_desk);
         }
     });
 

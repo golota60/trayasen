@@ -11,7 +11,8 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:test": "cd src-tauri && cargo test && cd .."
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.0.3",

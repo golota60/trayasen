@@ -86,8 +86,8 @@ pub async fn setup_bt_desk_device(
 ) -> Result<ConnectedBtDevice<impl ApiPeripheral>, BtError> {
     let mac_addr = BDAddr::default();
     println!("got the mac! desk: {:?}", &device);
-    device.connect().await.unwrap();
-    device.discover_services().await.unwrap();
+    device.connect().await?;
+    device.discover_services().await?;
 
     let control_characteristic = get_control_characteristic(device).await;
     let position_characteristic = get_position_characteristic(device).await;
@@ -122,26 +122,26 @@ async fn get_list_of_desks_once(
     }
 }
 
-pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeripheral> {
-    let mut desks = get_list_of_desks_once(loc_name).await;
-    let mut success = false;
+pub async fn get_list_of_desks(
+    loc_name: &Option<String>,
+) -> Result<Vec<ExpandedPeripheral>, BtError> {
+    // TODO: Refactor this so it's not having that ugly while loop
     let mut tries = 0;
     // try 3 times before erroring
-    while tries < 2 {
-        desks = get_list_of_desks_once(loc_name).await;
-        let ok = desks.is_ok();
 
-        if ok {
-            success = true;
-            break;
+    let mut desks;
+    for loop_iter in 0..3 {
+        desks = get_list_of_desks_once(loc_name).await;
+
+        if desks.is_ok() {
+            return desks;
+            // break;
         }
 
         tries += 1;
     }
-    if success == false {
-        panic!("Error while getting a list of desks");
-    }
-    desks.unwrap()
+
+    Err(BtError::CannotFindDevice)
 }
 
 // Getting characteristics every time is wasteful
@@ -317,9 +317,17 @@ pub struct PotentialDesk {
 // https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
 /// Desk we're connecting to for UI info
 #[tauri::command]
-pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
+pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, String> {
     let config = config_utils::get_or_create_config();
     let desk_list = get_list_of_desks(&config.local_name).await;
+    let desk_list = match desk_list {
+        Ok(desks) => desks,
+        Err(_) => {
+            // TODO: probably should not panic here
+            panic!("PANIC!");
+        }
+    };
+
     let desk_list_view = desk_list
         .iter()
         .map(|x| match config.local_name {
@@ -339,8 +347,8 @@ pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
     Ok(desk_list_view)
 }
 
-pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, ()> {
-    let desk_to_connect = get_list_of_desks(&Some(name.clone())).await;
+pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {
+    let desk_to_connect = get_list_of_desks(&Some(name.clone())).await?;
     let desk_to_connect = desk_to_connect
         .into_iter()
         .next()
@@ -350,7 +358,35 @@ pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPe
 
     config_utils::save_local_name(name);
     println!("saved desk!");
-    let _ = setup_bt_desk_device(&desk_to_connect).await;
+    // TODO: try to use the ACTUAL connected bt device, instead of the pre-connected device instance
+    // Challenge here is that we cannot operate on `impl ApiPeripheral`, cause it's not sized.
+    // Maybe it should be boxed/arced?
+    let bt = setup_bt_desk_device(&desk_to_connect).await;
+
+    let bt_ok = match bt {
+        Ok(Val) => Val,
+        Err(asd) => {
+            println!("{:?}", asd);
+            panic!("asd");
+        }
+    };
+    // if bt.is_err() {
+    //     let bt_err = bt.expect_err("asd");
+    //     return Err(bt_err);
+    // }
 
     Ok(desk_to_connect)
+}
+
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn it_works() {
+        let result =
+            crate::loose_idasen::connect_to_desk_by_name_internal("nonexistant_desk".to_string())
+                .await;
+        let is_err = result.is_err();
+
+        // assert_eq!(result, 4);
+    }
 }

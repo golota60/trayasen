@@ -10,8 +10,6 @@ use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
-use crate::tray_utils::handle_error_window_show;
-
 mod config_utils;
 mod loose_idasen;
 mod tray_utils;
@@ -170,17 +168,9 @@ fn main() {
                         }
                     }
                     None => {
-                        /*
-                        If the desk name is defined, but we've got no desk instance at this point,
-                        it means that we've failed to connect to the desk previously
-                         */
-
                         // Open error window with the error
-                        // window.sh
-                        // handle_error_window_show(&app.app_handle());
-
-                        println!("setting the path!");
-
+                        println!("opening error window!");
+                        _ = window.set_title("Trayasen - Woops!");
                         window
                             .show()
                             .expect("Error while trying to show the window");
@@ -230,7 +220,6 @@ fn main() {
                     block_on(async {
                         let desk = app.state::<TauriSharedDesk>();
 
-                        let desk = desk;
                         let desk = desk.0.lock();
                         let desk = desk.expect("Error while unwrapping shared desk");
                         let desk = desk
@@ -250,13 +239,12 @@ fn main() {
         .run(move |app_handle, event| match event {
             tauri::RunEvent::Ready => {}
             /*
-                Exit requested, might mean that a new position has been added.
-                This is troublesome; since all the positions are actually system tray elements, we need to re-instantiate it
+                Exit requested, might mean that a new position has been added(or that just a window has been closed).
+                This is troublesome; since all the positions are actually system tray elements, we need to re-instantiate the entire tray
                 So, when we detected an exit requested, just to be safe, refresh the system tray.
                 TODO: We should probably have a way of checking for new elements, to remove redundant system tray refreshes
             */
             tauri::RunEvent::ExitRequested { api, .. } => {
-                // Exit requested might mean that a new element has been added.
                 println!("Exit requested");
                 let config = config_utils::get_config();
                 let main_menu = config_utils::create_main_tray_menu(&config);

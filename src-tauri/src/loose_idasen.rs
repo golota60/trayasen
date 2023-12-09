@@ -125,20 +125,15 @@ async fn get_list_of_desks_once(
 pub async fn get_list_of_desks(
     loc_name: &Option<String>,
 ) -> Result<Vec<ExpandedPeripheral>, BtError> {
-    // TODO: Refactor this so it's not having that ugly while loop
-    let mut tries = 0;
     // try 3 times before erroring
-
     let mut desks;
-    for loop_iter in 0..3 {
+    for _loop_iter in 0..3 {
         desks = get_list_of_desks_once(loc_name).await;
 
         if desks.is_ok() {
             return desks;
             // break;
         }
-
-        tries += 1;
     }
 
     Err(BtError::CannotFindDevice)
@@ -348,9 +343,7 @@ pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, String> {
 }
 
 pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {
-    println!("meet me startway");
     let desk_to_connect = get_list_of_desks(&Some(name.clone())).await?;
-    println!("meet me halfway");
     let desk_to_connect = desk_to_connect
         .into_iter()
         .next()
@@ -365,30 +358,27 @@ pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPe
     // Maybe it should be boxed/arced?
     let bt = setup_bt_desk_device(&desk_to_connect).await;
 
-    let bt_ok = match bt {
+    let _bt_ok = match &bt {
         Ok(val) => val,
         Err(asd) => {
             println!("{:?}", asd);
             panic!("asd");
         }
     };
-    // if bt.is_err() {
-    //     let bt_err = bt.expect_err("asd");
-    //     return Err(bt_err);
-    // }
 
     Ok(desk_to_connect)
 }
 
+// TODO: Figure out bluetooth mocking to improve testing; without mocks tests are impossible
 #[cfg(test)]
-mod tests {
+mod connecting_suite {
     #[tokio::test]
-    async fn it_works() {
+    async fn should_fail_for_not_found_desk() {
         let result =
             crate::loose_idasen::connect_to_desk_by_name_internal("nonexistant_desk".to_string())
                 .await;
-        let is_err = result.is_err();
+        let err = result.unwrap_err();
 
-        // assert_eq!(result, 4);
+        assert_eq!(err.to_string(), "Cannot find the device.");
     }
 }

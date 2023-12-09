@@ -315,31 +315,31 @@ pub struct PotentialDesk {
 pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, String> {
     let config = config_utils::get_or_create_config();
     let desk_list = get_list_of_desks(&config.local_name).await;
-    let desk_list = match desk_list {
-        Ok(desks) => desks,
-        Err(_) => {
-            // TODO: probably should not panic here
-            panic!("PANIC!");
+
+    match desk_list {
+        Ok(desk_list) => {
+            let desk_list_view = desk_list
+                .iter()
+                .map(|x| match config.local_name {
+                    Some(_) => PotentialDesk {
+                        name: x.name.to_string(),
+                        status: SavedDeskStates::Saved.as_str().to_string(),
+                    },
+                    None => PotentialDesk {
+                        name: x.name.to_string(),
+                        status: SavedDeskStates::New.as_str().to_string(),
+                    },
+                })
+                .collect::<Vec<PotentialDesk>>();
+
+            println!("Found desk list: {:?}", &desk_list_view);
+
+            return Ok(desk_list_view);
         }
-    };
-
-    let desk_list_view = desk_list
-        .iter()
-        .map(|x| match config.local_name {
-            Some(_) => PotentialDesk {
-                name: x.name.to_string(),
-                status: SavedDeskStates::Saved.as_str().to_string(),
-            },
-            None => PotentialDesk {
-                name: x.name.to_string(),
-                status: SavedDeskStates::New.as_str().to_string(),
-            },
-        })
-        .collect::<Vec<PotentialDesk>>();
-
-    println!("Found desk list: {:?}", &desk_list_view);
-
-    Ok(desk_list_view)
+        Err(e) => {
+            return Err(e.to_string());
+        }
+    }
 }
 
 pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {

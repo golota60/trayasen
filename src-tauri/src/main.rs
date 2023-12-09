@@ -123,69 +123,81 @@ fn main() {
             let loc_name = &config.local_name;
             let window = app.get_window("main").unwrap();
 
-            if let Some(_) = loc_name {
-                let desk_state = app.state::<TauriSharedDesk>();
+            match loc_name {
+                Some(actual_loc_name) => {
+                    let desk_state = app.state::<TauriSharedDesk>();
 
-                // We expect the desk to already exist at this point, since if loc_name, the first thing we do in the app is connect
-                let desk = desk_state
-                    .0
-                    .lock()
-                    .expect("Error while unwrapping shared desk");
-                let desk = desk.as_ref();
-                match desk {
-                    /*
-                        If the user is returning(has a config) immidiately close the window, not to eat resources
-                        And then proceed to try to create the menu.
-                    */
-                    Some(desk) => {
-                        window
-                            .close()
-                            .expect("Error while closing the initial window");
-                        // Register all shortcuts
-                        let mut shortcut_manager = app.global_shortcut_manager();
-                        let all_positions = &config.saved_positions;
-                        let cloned_pos = all_positions.clone();
-                        for pos in cloned_pos.into_iter() {
-                            // Each iteration needs it's own clone; we do not want to consume the app state
-                            let cloned_desk = desk.clone();
-                            if let Some(shortcut_key) = &pos.shortcut {
-                                if shortcut_key != "" {
-                                    _ = shortcut_manager.register(
-                                        shortcut_key.as_str(),
-                                        move || {
-                                            block_on(async {
-                                                loose_idasen::move_to_target(
-                                                    &cloned_desk,
-                                                    pos.value,
-                                                )
-                                                .await
-                                                .unwrap();
-                                            });
-                                        },
-                                    );
+                    // We expect the desk to already exist at this point, since if loc_name exists, the first thing we do in the app is connect
+                    let desk = desk_state
+                        .0
+                        .lock()
+                        .expect("Error while unwrapping shared desk");
+                    let desk = desk.as_ref();
+                    match desk {
+                        /*
+                            If the user is returning(has a config) immidiately close the window, not to eat resources
+                            And then proceed to try to create the menu.
+                        */
+                        Some(desk) => {
+                            window
+                                .close()
+                                .expect("Error while closing the initial window");
+                            // Register all shortcuts
+                            let mut shortcut_manager = app.global_shortcut_manager();
+                            let all_positions = &config.saved_positions;
+                            let cloned_pos = all_positions.clone();
+                            for pos in cloned_pos.into_iter() {
+                                // Each iteration needs it's own clone; we do not want to consume the app state
+                                let cloned_desk = desk.clone();
+                                if let Some(shortcut_key) = &pos.shortcut {
+                                    if shortcut_key != "" {
+                                        _ = shortcut_manager.register(
+                                            shortcut_key.as_str(),
+                                            move || {
+                                                block_on(async {
+                                                    loose_idasen::move_to_target(
+                                                        &cloned_desk,
+                                                        pos.value,
+                                                    )
+                                                    .await
+                                                    .unwrap();
+                                                });
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }
-                    }
-                    None => {
-                        // Open error window with the error
-                        println!("opening error window!");
-                        _ = window.set_title("Trayasen - Woops!");
-                        window
-                            .show()
-                            .expect("Error while trying to show the window");
-                        _ = window.eval(
-                            r#"
-                        history.replaceState({}, '','/error');
-                        "#,
-                        );
+                        None => {
+                            // Open error window with the error
+                            println!("opening error window!");
+                            _ = window.set_title("Trayasen - Woops!");
+                            window
+                                .show()
+                                .expect("Error while trying to show the window");
+                            
+                            // TODO: Passing state as a string literal to window via `eval` is a terrible way to handle state.
+                            // This should be passed/handled via tauri state.
+            
+                            _ = window.eval(
+                                format!(r#"
+                                window.stateWorkaround = {{
+                                    title: "The app was not able to connect to your saved desk with name: `{}`.",
+                                    description: "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again."
+                                }}
+                        history.replaceState({{}}, '','/error');
+                        "#, actual_loc_name).as_str(),
+                            );
+                        }
                     }
                 }
-            } else {
-                window
-                    .show()
-                    .expect("Error while trying to show the window");
-            };
+                None => {
+                    // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
+                    window
+                        .show()
+                        .expect("Error while trying to show the window");
+                }
+            }
 
             Ok(())
         })

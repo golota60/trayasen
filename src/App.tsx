@@ -1,11 +1,29 @@
-import { RouteConfig, createBrowserRouter } from "found";
+import { Link, RouteConfig, createBrowserRouter } from "found";
 import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
 import ManagePositionsPage from "./ManagePositionsPage";
+import { Button } from "./generic/button";
 
 const ErrorPage = () => {
-  return <div>error!</div>;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <div>{(window as any)?.stateWorkaround?.title}</div>
+      <div>{(window as any)?.stateWorkaround?.description}</div>
+      <div>
+        <Button>
+          <Link to="/">Open setup page</Link>
+        </Button>
+      </div>
+    </div>
+  );
 };
 
 const routeConfig: RouteConfig = [

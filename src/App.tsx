@@ -1,9 +1,11 @@
-import { Link, RouteConfig, createBrowserRouter } from "found";
+import { RouteConfig, createBrowserRouter } from "found";
+import { relaunch } from "@tauri-apps/api/process";
 import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
 import ManagePositionsPage from "./ManagePositionsPage";
 import { Button } from "./generic/button";
+import { resetDesk } from "./rustUtils";
 
 const ErrorPage = () => {
   return (
@@ -18,8 +20,13 @@ const ErrorPage = () => {
       <div>{(window as any)?.stateWorkaround?.title}</div>
       <div>{(window as any)?.stateWorkaround?.description}</div>
       <div>
-        <Button>
-          <Link to="/">Open setup page</Link>
+        <Button
+          onClick={() => {
+            resetDesk();
+            relaunch();
+          }}
+        >
+          Reset app and desk name & open the connect intro menu
         </Button>
       </div>
     </div>

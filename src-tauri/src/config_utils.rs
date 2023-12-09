@@ -145,7 +145,7 @@ pub fn update_config(updated_config: &ConfigData) {
 
     let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
     fs::write(config_path, stringified_new_config)
-        .expect("Saving a config after updatign a config");
+        .expect("Saving a config after updating a config");
 }
 
 #[tauri::command]
@@ -153,6 +153,25 @@ pub fn remove_config() {
     let config_path = get_config_path().trim_end().to_string();
 
     let _ = remove_file(config_path);
+}
+
+#[tauri::command]
+pub fn reset_desk() {
+    let config_path = get_config_path().trim_end().to_string();
+
+    let config =
+        read_to_string(&config_path).expect("err while reading config while resetting desk");
+    // Config exists
+    let config = from_str::<ConfigData>(config.as_str()).expect("Error while parsing config file");
+
+    let updated_config = ConfigData {
+        local_name: None,
+        saved_positions: config.saved_positions,
+    };
+
+    let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
+    fs::write(config_path, stringified_new_config)
+        .expect("Saving a config after updating a config");
 }
 
 pub struct MenuConfigItem {

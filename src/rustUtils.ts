@@ -46,3 +46,7 @@ export const createNewElem = async (
 export const removeConfig = async () => {
   return await invoke("remove_config");
 };
+
+export const resetDesk = async () => {
+  return await invoke("reset_desk");
+};

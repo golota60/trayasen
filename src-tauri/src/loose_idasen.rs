@@ -14,7 +14,7 @@ use btleplug::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::config_utils;
+use crate::{config_utils, TauriSharedDesk};
 
 /*
   This file contains loose utils to interact with a desk bluetooth peripheral as if it's a desk.
@@ -342,6 +342,8 @@ pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, String> {
     }
 }
 
+// TODO: UPDATE THE DESK INSTANCE MUTEX EVERY TIME YOU USE THIS FUNCTION HERE OTHERWISE IT WILL BREAK
+// AS WE WILL HAVE DESYNC OF ACTUAL DESK AND CONNECTED ONE
 pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {
     let desk_to_connect = get_list_of_desks(&Some(name.clone())).await?;
     let desk_to_connect = desk_to_connect

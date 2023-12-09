@@ -28,7 +28,7 @@
     "react-dom": "^18.2.0",
     "tailwind-merge": "^1.12.0",
     "tailwindcss-animate": "^1.0.5",
-    "tauri-plugin-autostart-api": "https://github.com/tauri-apps/tauri-plugin-autostart",
+    "tauri-plugin-autostart-api": "https://github.com/tauri-apps/tauri-plugin-autostart#v1",
     "use-simple-async": "^1.4.2"
   },
   "devDependencies": {

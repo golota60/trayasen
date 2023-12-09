@@ -831,6 +831,11 @@
   dependencies:
     dequal "^2.0.2"
 
+"@tauri-apps/api@1.5.1":
+  version "1.5.1"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/api/-/api-1.5.1.tgz#9074476c4323f71351db624e9711c99277cdfb99"
+  integrity sha512-6unsZDOdlXTmauU3NhWhn+Cx0rODV+rvNvTdvolE5Kls5ybA6cqndQENDt1+FS0tF7ozCP66jwWoH6a5h90BrA==
+
 "@tauri-apps/api@^1.2.0":
   version "1.2.0"
   resolved "https://registry.npmjs.org/@tauri-apps/api/-/api-1.2.0.tgz"
@@ -3059,6 +3064,12 @@ tailwindcss@^3.2.4:
   resolved "https://github.com/tauri-apps/tauri-plugin-autostart#3d370278d86de2d26b78cbd63b43b6dbea386df4"
   dependencies:
     "@tauri-apps/api" "^1.2.0"
+
+"tauri-plugin-autostart-api@https://github.com/tauri-apps/tauri-plugin-autostart#v1":
+  version "0.0.0"
+  resolved "https://github.com/tauri-apps/tauri-plugin-autostart#7404c3ccd2e45c642e3b876500ab79d88af85e4d"
+  dependencies:
+    "@tauri-apps/api" "1.5.1"
 
 text-table@^0.2.0:
   version "0.2.0"

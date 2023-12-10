@@ -6,7 +6,7 @@ authors = ["Szymon Wiszczuk<szymon.wiszczuk@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/golota60/trayasen"
 edition = "2021"
-rust-version = "1.57"
+rust-version = "1.70"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

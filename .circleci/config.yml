@@ -14,7 +14,7 @@ jobs:
           name: Lint JS code
   build-tauri:
     docker:
-      - image: cimg/rust:1.67.1-node
+      - image: cimg/rust:1.74.1-node
     steps:
       - checkout
       - node/install-packages:

@@ -14,7 +14,7 @@ use btleplug::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{config_utils, TauriSharedDesk};
+use crate::config_utils;
 
 /*
   This file contains loose utils to interact with a desk bluetooth peripheral as if it's a desk.

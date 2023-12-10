@@ -63,28 +63,36 @@ const AboutPage = () => {
             </p>
           </div>
         </div>
-        <div className="flex justify-between mb-3">
-          <Button
-            className="mr-2"
-            onClick={() => {
-              removeConfig();
-              relaunch();
-            }}
-          >
-            Reset config & restart the app
-          </Button>
-          <TooltipProvider>
-            <Tooltip delayDuration={100}>
-              <TooltipTrigger>
-                <HelpCircle className="text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Returns your app to default settings</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
 
+        <div className="flex-col flex justify-center items-center">
+          <h1
+            className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
+ mt-2 mb-5"
+          >
+            Advanced Options
+          </h1>
+          <div className="flex justify-between mb-3">
+            <Button
+              className="mr-2"
+              onClick={() => {
+                removeConfig();
+                relaunch();
+              }}
+            >
+              Reset config & restart the app
+            </Button>
+            <TooltipProvider>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger>
+                  <HelpCircle className="text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Returns your app to default settings</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
         <h1
           className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
  mt-2 mb-3"

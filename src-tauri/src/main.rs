@@ -4,35 +4,19 @@
 )]
 
 use std::sync::Mutex;
-use btleplug::api::Peripheral;
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
+mod desk_mutex;
 mod config_utils;
 mod loose_idasen;
 mod tray_utils;
 
 #[derive(Default)]
 pub struct TauriSharedDesk(Mutex<Option<PlatformPeripheral>>);
-
-pub fn get_desk_from_app_state(app_handle: &tauri::AppHandle) -> PlatformPeripheral {
-    let desk = app_handle.state::<TauriSharedDesk>();
-    let desk = desk.0.lock().expect("Error while unwrapping shared desk");
-    let desk = desk
-        .as_ref()
-        .expect("Desk should have been defined at this point");
-    desk.clone()
-}
-
-pub fn assign_desk_to_mutex(desk: &TauriSharedDesk, new_desk: Option<PlatformPeripheral>) {
-    *desk
-    .0
-    .lock()
-    .expect("Failed to deref mutex during instantiation") = new_desk;
-}
 
 #[tauri::command]
 fn create_new_elem(
@@ -61,7 +45,7 @@ fn create_new_elem(
             });
             config_utils::update_config(&config);
 
-            let desk = get_desk_from_app_state(&app_handle);
+            let desk = desk_mutex::get_desk_from_app_state(&app_handle);
 
             let cloned_desk = desk.clone();
             if let Some(shortcut_acc) = shortcutvalue {
@@ -89,7 +73,7 @@ async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> 
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
     let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await.ok();
 
-    assign_desk_to_mutex(&instantiated_desk, cached_desk);
+    desk_mutex::assign_desk_to_mutex(&instantiated_desk, cached_desk);
     Ok(())
 }
 
@@ -107,11 +91,7 @@ fn main() {
                 .await
                 .ok();
 
-                assign_desk_to_mutex(&initiated_desk, cached_desk);
-            // *initiated_desk
-            //     .0
-            //     .lock()
-            //     .expect("Failed to deref mutex during instantiation") = cached_desk;
+                desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
         }
     });
 
@@ -249,7 +229,7 @@ fn main() {
                         .find(|pos| pos.position_elem.id_str == remaining_id)
                         .expect("Clicked element not found");
                     block_on(async {
-                        let desk = get_desk_from_app_state(app);
+                        let desk = desk_mutex::get_desk_from_app_state(app);
 
                         loose_idasen::move_to_target(&desk, found_elem.value)
                             .await

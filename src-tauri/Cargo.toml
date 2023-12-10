@@ -1,5 +1,5 @@
 [package]
-name = "Trayasen"
+name = "trayasen"
 version = "0.0.6"
 description = "An app to control IKEA Idasen desk"
 authors = ["Szymon Wiszczuk<szymon.wiszczuk@gmail.com>"]

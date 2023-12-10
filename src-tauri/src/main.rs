@@ -10,6 +10,7 @@ use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 
+mod desk_mutex;
 mod config_utils;
 mod loose_idasen;
 mod tray_utils;
@@ -44,11 +45,7 @@ fn create_new_elem(
             });
             config_utils::update_config(&config);
 
-            let desk = app_handle.state::<TauriSharedDesk>();
-            let desk = desk.0.lock().expect("Error while unwrapping shared desk");
-            let desk = desk
-                .as_ref()
-                .expect("Desk should have been defined at this point");
+            let desk = desk_mutex::get_desk_from_app_state(&app_handle);
 
             let cloned_desk = desk.clone();
             if let Some(shortcut_acc) = shortcutvalue {
@@ -70,9 +67,13 @@ fn create_new_elem(
 
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
-async fn connect_to_desk_by_name(name: String) -> Result<(), ()> {
-    loose_idasen::connect_to_desk_by_name_internal(name).await?;
+async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), ()> {
+    println!("saving name: {name}");
+    
+    let instantiated_desk = app_handle.state::<TauriSharedDesk>();
+    let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await.ok();
 
+    desk_mutex::assign_desk_to_mutex(&instantiated_desk, cached_desk);
     Ok(())
 }
 
@@ -86,9 +87,11 @@ fn main() {
     let local_name = &config.local_name;
     block_on(async {
         if let Some(local_name) = local_name.clone() {
-            let cached_desk =
-                loose_idasen::connect_to_desk_by_name_internal(local_name.clone()).await;
-            *initiated_desk.0.lock().unwrap() = Some(cached_desk.unwrap());
+            let cached_desk = loose_idasen::connect_to_desk_by_name_internal(local_name.clone())
+                .await
+                .ok();
+
+                desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
         }
     });
 
@@ -118,47 +121,81 @@ fn main() {
             let loc_name = &config.local_name;
             let window = app.get_window("main").unwrap();
 
-            if let Some(_) = loc_name {
-                // If the user is returning(has a config) immidiately close the window, not to eat resources
-                // And then proceed to try to connect to the provided desk name.
-                window
-                    .close()
-                    .expect("Error while closing the initial window");
-                let desk_state = app.state::<TauriSharedDesk>();
+            match loc_name {
+                Some(actual_loc_name) => {
+                    let desk_state = app.state::<TauriSharedDesk>();
 
-                // We expect the desk to already exist at this point, since if loc_name, the first thing we do in the app is connect
-                let desk = desk_state
-                    .0
-                    .lock()
-                    .expect("Error while unwrapping shared desk");
-                let desk = desk
-                    .as_ref()
-                    .expect("Desk should have been defined at this point");
-
-                // Register all shortcuts
-                let mut shortcut_manager = app.global_shortcut_manager();
-                let all_positions = &config.saved_positions;
-                let cloned_pos = all_positions.clone();
-                for pos in cloned_pos.into_iter() {
-                    // Each iteration needs it's own clone; we do not want to consume the app state
-                    let cloned_desk = desk.clone();
-                    if let Some(shortcut_key) = &pos.shortcut {
-                        if shortcut_key != "" {
-                            _ = shortcut_manager.register(shortcut_key.as_str(), move || {
-                                block_on(async {
-                                    loose_idasen::move_to_target(&cloned_desk, pos.value)
-                                        .await
-                                        .unwrap();
-                                });
-                            });
+                    // We expect the desk to already exist at this point, since if loc_name exists, the first thing we do in the app is connect
+                    let desk = desk_state
+                        .0
+                        .lock()
+                        .expect("Error while unwrapping shared desk");
+                    let desk = desk.as_ref();
+                    match desk {
+                        /*
+                            If the user is returning(has a config) immidiately close the window, not to eat resources
+                            And then proceed to try to create the menu.
+                        */
+                        Some(desk) => {
+                            window
+                                .close()
+                                .expect("Error while closing the initial window");
+                            // Register all shortcuts
+                            let mut shortcut_manager = app.global_shortcut_manager();
+                            let all_positions = &config.saved_positions;
+                            let cloned_pos = all_positions.clone();
+                            for pos in cloned_pos.into_iter() {
+                                // Each iteration needs it's own clone; we do not want to consume the app state
+                                let cloned_desk = desk.clone();
+                                if let Some(shortcut_key) = &pos.shortcut {
+                                    if shortcut_key != "" {
+                                        _ = shortcut_manager.register(
+                                            shortcut_key.as_str(),
+                                            move || {
+                                                block_on(async {
+                                                    loose_idasen::move_to_target(
+                                                        &cloned_desk,
+                                                        pos.value,
+                                                    )
+                                                    .await
+                                                    .unwrap();
+                                                });
+                                            },
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            // Open error window with the error
+                            println!("opening error window!");
+                            _ = window.set_title("Trayasen - Woops!");
+                            window
+                                .show()
+                                .expect("Error while trying to show the window");
+                            
+                            // TODO: Passing state as a string literal to window via `eval` is a terrible way to handle state.
+                            // This should be passed/handled via tauri state.
+            
+                            _ = window.eval(
+                                format!(r#"
+                                window.stateWorkaround = {{
+                                    title: "The app was not able to connect to your saved desk with name: `{}`.",
+                                    description: "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again."
+                                }}
+                        history.replaceState({{}}, '','/error');
+                        "#, actual_loc_name).as_str(),
+                            );
                         }
                     }
                 }
-            } else {
-                window
-                    .show()
-                    .expect("Error while trying to show the window");
-            };
+                None => {
+                    // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
+                    window
+                        .show()
+                        .expect("Error while trying to show the window");
+                }
+            }
 
             Ok(())
         })
@@ -168,6 +205,7 @@ fn main() {
             config_utils::get_config,
             config_utils::remove_position,
             config_utils::remove_config,
+            config_utils::reset_desk,
             loose_idasen::get_desk_to_connect,
             connect_to_desk_by_name,
         ])
@@ -191,16 +229,9 @@ fn main() {
                         .find(|pos| pos.position_elem.id_str == remaining_id)
                         .expect("Clicked element not found");
                     block_on(async {
-                        let desk = app.state::<TauriSharedDesk>();
+                        let desk = desk_mutex::get_desk_from_app_state(app);
 
-                        let desk = desk;
-                        let desk = desk.0.lock();
-                        let desk = desk.expect("Error while unwrapping shared desk");
-                        let desk = desk
-                            .as_ref()
-                            .expect("Desk should have been defined at this point");
-
-                        loose_idasen::move_to_target(desk, found_elem.value)
+                        loose_idasen::move_to_target(&desk, found_elem.value)
                             .await
                             .unwrap();
                     });
@@ -213,13 +244,12 @@ fn main() {
         .run(move |app_handle, event| match event {
             tauri::RunEvent::Ready => {}
             /*
-                Exit requested, might mean that a new position has been added.
-                This is troublesome; since all the positions are actually system tray elements, we need to re-instantiate it
+                Exit requested, might mean that a new position has been added(or that just a window has been closed).
+                This is troublesome; since all the positions are actually system tray elements, we need to re-instantiate the entire tray
                 So, when we detected an exit requested, just to be safe, refresh the system tray.
                 TODO: We should probably have a way of checking for new elements, to remove redundant system tray refreshes
             */
             tauri::RunEvent::ExitRequested { api, .. } => {
-                // Exit requested might mean that a new element has been added.
                 println!("Exit requested");
                 let config = config_utils::get_config();
                 let main_menu = config_utils::create_main_tray_menu(&config);

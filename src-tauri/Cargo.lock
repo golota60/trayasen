@@ -3,22 +3,6 @@
 version = 3
 
 [[package]]
-name = "Trayasen"
-version = "0.0.6"
-dependencies = [
- "btleplug",
- "serde",
- "serde_derive",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "thiserror",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -232,9 +216,9 @@ checksum = "1181e1e0d1fce796a03db1ae795d67167da795f9cf4a39c37589e85ef57f26d3"
 
 [[package]]
 name = "auto-launch"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5904a4d734f0235edf29aab320a14899f3e090446e594ff96508a6215f76f89c"
+checksum = "1f012b8cc0c850f34117ec8252a44418f2e34a2cf501de89e29b241ae5f79471"
 dependencies = [
  "dirs",
  "thiserror",
@@ -3757,8 +3741,8 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-autostart"
-version = "0.1.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=dev#265acf745435dabe78321ff7cf1e0af92df566e2"
+version = "0.0.0"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#af2892f6a1271907c0efc67f0b7c09799bb64dd4"
 dependencies = [
  "auto-launch",
  "log",
@@ -4153,6 +4137,22 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "trayasen"
+version = "0.0.6"
+dependencies = [
+ "btleplug",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "thiserror",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

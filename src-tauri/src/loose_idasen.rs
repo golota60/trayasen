@@ -14,7 +14,7 @@ use btleplug::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::config_utils;
+use crate::{config_utils, TauriSharedDesk};
 
 /*
   This file contains loose utils to interact with a desk bluetooth peripheral as if it's a desk.
@@ -86,8 +86,8 @@ pub async fn setup_bt_desk_device(
 ) -> Result<ConnectedBtDevice<impl ApiPeripheral>, BtError> {
     let mac_addr = BDAddr::default();
     println!("got the mac! desk: {:?}", &device);
-    device.connect().await.unwrap();
-    device.discover_services().await.unwrap();
+    device.connect().await?;
+    device.discover_services().await?;
 
     let control_characteristic = get_control_characteristic(device).await;
     let position_characteristic = get_position_characteristic(device).await;
@@ -122,26 +122,21 @@ async fn get_list_of_desks_once(
     }
 }
 
-pub async fn get_list_of_desks(loc_name: &Option<String>) -> Vec<ExpandedPeripheral> {
-    let mut desks = get_list_of_desks_once(loc_name).await;
-    let mut success = false;
-    let mut tries = 0;
+pub async fn get_list_of_desks(
+    loc_name: &Option<String>,
+) -> Result<Vec<ExpandedPeripheral>, BtError> {
     // try 3 times before erroring
-    while tries < 2 {
+    let mut desks;
+    for _loop_iter in 0..3 {
         desks = get_list_of_desks_once(loc_name).await;
-        let ok = desks.is_ok();
 
-        if ok {
-            success = true;
-            break;
+        if desks.is_ok() {
+            return desks;
+            // break;
         }
+    }
 
-        tries += 1;
-    }
-    if success == false {
-        panic!("Error while getting a list of desks");
-    }
-    desks.unwrap()
+    Err(BtError::CannotFindDevice)
 }
 
 // Getting characteristics every time is wasteful
@@ -317,30 +312,40 @@ pub struct PotentialDesk {
 // https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
 /// Desk we're connecting to for UI info
 #[tauri::command]
-pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, ()> {
+pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, String> {
     let config = config_utils::get_or_create_config();
     let desk_list = get_list_of_desks(&config.local_name).await;
-    let desk_list_view = desk_list
-        .iter()
-        .map(|x| match config.local_name {
-            Some(_) => PotentialDesk {
-                name: x.name.to_string(),
-                status: SavedDeskStates::Saved.as_str().to_string(),
-            },
-            None => PotentialDesk {
-                name: x.name.to_string(),
-                status: SavedDeskStates::New.as_str().to_string(),
-            },
-        })
-        .collect::<Vec<PotentialDesk>>();
 
-    println!("Found desk list: {:?}", &desk_list_view);
+    match desk_list {
+        Ok(desk_list) => {
+            let desk_list_view = desk_list
+                .iter()
+                .map(|x| match config.local_name {
+                    Some(_) => PotentialDesk {
+                        name: x.name.to_string(),
+                        status: SavedDeskStates::Saved.as_str().to_string(),
+                    },
+                    None => PotentialDesk {
+                        name: x.name.to_string(),
+                        status: SavedDeskStates::New.as_str().to_string(),
+                    },
+                })
+                .collect::<Vec<PotentialDesk>>();
 
-    Ok(desk_list_view)
+            println!("Found desk list: {:?}", &desk_list_view);
+
+            return Ok(desk_list_view);
+        }
+        Err(e) => {
+            return Err(e.to_string());
+        }
+    }
 }
 
-pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, ()> {
-    let desk_to_connect = get_list_of_desks(&Some(name.clone())).await;
+// TODO: UPDATE THE DESK INSTANCE MUTEX EVERY TIME YOU USE THIS FUNCTION HERE OTHERWISE IT WILL BREAK
+// AS WE WILL HAVE DESYNC OF ACTUAL DESK AND CONNECTED ONE
+pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {
+    let desk_to_connect = get_list_of_desks(&Some(name.clone())).await?;
     let desk_to_connect = desk_to_connect
         .into_iter()
         .next()
@@ -350,7 +355,32 @@ pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPe
 
     config_utils::save_local_name(name);
     println!("saved desk!");
-    let _ = setup_bt_desk_device(&desk_to_connect).await;
+    // TODO: try to use the ACTUAL connected bt device, instead of the pre-connected device instance
+    // Challenge here is that we cannot operate on `impl ApiPeripheral`, cause it's not sized.
+    // Maybe it should be boxed/arced?
+    let bt = setup_bt_desk_device(&desk_to_connect).await;
+
+    let _bt_ok = match &bt {
+        Ok(val) => val,
+        Err(asd) => {
+            println!("{:?}", asd);
+            panic!("asd");
+        }
+    };
 
     Ok(desk_to_connect)
+}
+
+// TODO: Figure out bluetooth mocking to improve testing; without mocks tests are impossible
+#[cfg(test)]
+mod connecting_suite {
+    #[tokio::test]
+    async fn should_fail_for_not_found_desk() {
+        let result =
+            crate::loose_idasen::connect_to_desk_by_name_internal("nonexistant_desk".to_string())
+                .await;
+        let err = result.unwrap_err();
+
+        assert_eq!(err.to_string(), "Cannot find the device.");
+    }
 }

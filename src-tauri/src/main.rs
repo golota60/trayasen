@@ -67,11 +67,17 @@ fn create_new_elem(
 
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
-async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), ()> {
+async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), String> {
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
-    let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await.ok();
+    let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await;
 
-    desk_mutex::assign_desk_to_mutex(&instantiated_desk, cached_desk);
+    if cached_desk.is_err() {
+        return Err(cached_desk.unwrap_err().to_string());
+    }
+
+    println!("cached desk: some:{}, none:{}", cached_desk.is_ok(), cached_desk.is_err());
+    desk_mutex::assign_desk_to_mutex(&instantiated_desk, cached_desk.ok());
+    println!("Successfuly connected to desk from frontend");
     Ok(())
 }
 
@@ -135,9 +141,9 @@ fn main() {
                             And then proceed to try to create the menu.
                         */
                         Some(desk) => {
-                            window
-                                .close()
-                                .expect("Error while closing the initial window");
+                            // window
+                            //     .close()
+                            //     .expect("Error while closing the initial window");
                             // Register all shortcuts
                             let mut shortcut_manager = app.global_shortcut_manager();
                             let all_positions = &config.saved_positions;

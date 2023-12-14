@@ -44,10 +44,9 @@ Desk should NOT be connected to the system while opening the app. This is a weir
 
 Connect to the desk using your system bluetooth control. After this, everything should just work. But since there are a lot of linux flavors out there, there's a chance that your machine might have some different quirks.
 
-## Troubleshooting and config resetting
+## Resetting to factory settings
 
 If you want to reset your config go into `About/Options` menu and you should see a config reset button. In case you cannot do that, delete the configuration file, path of which you can find below.
-
 
 If you encounter any problems that were not explained anywhere in this README, feel free to open an issue describing your problem. If you wish to inspect the config file, below are the locations for every system.
 
@@ -70,6 +69,26 @@ If you encounter any problems that were not explained anywhere in this README, f
 ```
 
 **Important** - If you changed your desk device name, you'll also need to reset the config.
+
+## Troubleshooting
+
+Here are the errors that might happen to you. If you don't see your error(or a fix to it doesn't work) described below, please open an issue, along with the reproduction steps:
+
+- `Cannot subscribe to read position`
+
+On Windows, this means that this is the first time your computer is connecting to your desk, and has not been set up properly yet.
+
+Fix 1: 
+1. While connecting to the desk inside the app(essentially, clicking "Connect" button), you should see a windows popup(in the lower right corner of your screen) with the text saying - "Tap to set up Desk XXXX". 
+2. Click on that, and select "Allow". 
+3. After that, click "Reset config & restart the app" in the Trayasen app. After this, the next connection to your desk should be successful.
+
+Fix 2:
+1. In bluetooth settings, set the following option to "Advanced" 
+<img src="https://github.com/golota60/trayasen/blob/master/win-bluetooth.png" width="200">
+
+2. Next, try adding a bluetooth device. You should see your desk with the name `Desk XXXX`. Connect to it. After successful connection, you should be able to connect to it from Trayasen. 
+
 
 ## Self-compiling
 

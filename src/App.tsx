@@ -9,7 +9,8 @@ import { Button } from "./generic/button";
 import { connectToDesk, resetDesk } from "./rustUtils";
 import Spinner from "./generic/Spinner";
 
-const ErrorPage = () => {
+// This error will only happen for users with a desk already set up. Intro Page errors are be handled in Intro Page.
+const ReturningUserErrorPage = () => {
   const [isLoading, setLoading] = useState(false);
 
   if (isLoading) {
@@ -58,7 +59,7 @@ const ErrorPage = () => {
 };
 
 const routeConfig: RouteConfig = [
-  { path: "/error", Component: ErrorPage },
+  { path: "/error", Component: ReturningUserErrorPage },
   { path: "/about", Component: AboutPage },
   { path: "/new-position", Component: NewPositionPage },
   { path: "/manage-positions", Component: ManagePositionsPage },

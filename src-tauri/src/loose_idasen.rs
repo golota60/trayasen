@@ -1,3 +1,7 @@
+/*
+  This file contains loose utils to interact with a desk bluetooth peripheral as if it's a desk.
+  Requires the device in question to already be connected, otherwise it will error
+*/
 use std::{
     cmp::Ordering,
     thread::sleep,
@@ -15,11 +19,6 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::config_utils;
-
-/*
-  This file contains loose utils to interact with a desk bluetooth peripheral as if it's a desk.
-  Requires the device in question to already be connected, otherwise it will error
-*/
 
 const CONTROL_UUID: Uuid = Uuid::from_bytes([
     0x99, 0xfa, 0x00, 0x02, 0x33, 0x8a, 0x10, 0x24, 0x8a, 0x49, 0x00, 0x9c, 0x02, 0x15, 0xf7, 0x8a,
@@ -312,7 +311,7 @@ pub struct PotentialDesk {
 // https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
 /// Desk we're connecting to for UI info
 #[tauri::command]
-pub async fn get_desk_to_connect() -> Result<Vec<PotentialDesk>, String> {
+pub async fn get_available_desks_to_connect() -> Result<Vec<PotentialDesk>, String> {
     let config = config_utils::get_or_create_config();
     let desk_list = get_list_of_desks(&config.local_name).await;
 

@@ -13,8 +13,10 @@ export interface ConnectionDesk {
   status: "new" | "saved";
 }
 
-export const getConnectionDesk = async () => {
-  return (await invoke("get_desk_to_connect")) as Array<ConnectionDesk>;
+export const getAvailableDesks = async () => {
+  return (await invoke(
+    "get_available_desks_to_connect"
+  )) as Array<ConnectionDesk>;
 };
 
 export interface Config {

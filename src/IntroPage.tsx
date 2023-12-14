@@ -12,10 +12,10 @@ import {
 import DeskElement from "./DeskElement";
 import { Button } from "./generic/button";
 import Spinner from "./generic/Spinner";
-import { connectToDesk, getConnectionDesk, removeConfig } from "./rustUtils";
+import { connectToDesk, getAvailableDesks, removeConfig } from "./rustUtils";
 
 const IntroPage = () => {
-  const [data, { error, loading }] = useSimpleAsync(getConnectionDesk, {
+  const [data, { error, loading }] = useSimpleAsync(getAvailableDesks, {
     useLayout: true,
   });
   const [isConnecting, setIsConnecting] = useState(false);

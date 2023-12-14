@@ -68,8 +68,6 @@ fn create_new_elem(
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
 async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), ()> {
-    println!("saving name: {name}");
-    
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
     let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await.ok();
 
@@ -181,10 +179,11 @@ fn main() {
                                 format!(r#"
                                 window.stateWorkaround = {{
                                     title: "The app was not able to connect to your saved desk with name: `{}`.",
-                                    description: "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again."
+                                    description: "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again.",
+                                    desk_name: "{}"
                                 }}
                         history.replaceState({{}}, '','/error');
-                        "#, actual_loc_name).as_str(),
+                        "#, actual_loc_name,actual_loc_name).as_str(),
                             );
                         }
                     }
@@ -206,7 +205,7 @@ fn main() {
             config_utils::remove_position,
             config_utils::remove_config,
             config_utils::reset_desk,
-            loose_idasen::get_desk_to_connect,
+            loose_idasen::get_available_desks_to_connect,
             connect_to_desk_by_name,
         ])
         .enable_macos_default_menu(false)

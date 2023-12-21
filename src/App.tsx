@@ -12,6 +12,7 @@ import Spinner from "./generic/Spinner";
 // This error will only happen for users with a desk already set up. Intro Page errors are be handled in Intro Page.
 const ReturningUserErrorPage = () => {
   const [isLoading, setLoading] = useState(false);
+  const [error, setError] = useState<string>("");
 
   if (isLoading) {
     return (
@@ -36,7 +37,11 @@ const ReturningUserErrorPage = () => {
         <Button
           onClick={async () => {
             setLoading(true);
-            await connectToDesk((window as any)?.stateWorkaround?.desk_name);
+            try {
+              await connectToDesk((window as any)?.stateWorkaround?.desk_name);
+            } catch (e) {
+              setError(e as string);
+            }
             setLoading(false);
           }}
         >
@@ -54,6 +59,12 @@ const ReturningUserErrorPage = () => {
           Reset app and desk name & open the connect intro menu
         </Button>
       </div>
+      {error && (
+        <>
+          <div>Error content:</div>
+          <div>{error}</div>
+        </>
+      )}
     </div>
   );
 };

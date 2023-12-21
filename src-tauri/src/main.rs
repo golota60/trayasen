@@ -68,10 +68,13 @@ fn create_new_elem(
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
 async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), String> {
+    println!("trying again...");
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
+    println!("with desk!...");
     let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await;
-
+    println!("after cached desk...");
     if cached_desk.is_err() {
+        println!("in error!...");
         return Err(cached_desk.unwrap_err().to_string());
     }
 
@@ -91,6 +94,7 @@ fn main() {
     let local_name = &config.local_name;
     block_on(async {
         if let Some(local_name) = local_name.clone() {
+            // TODO: PASS THIS ERROR TO FRONTEND TO DISPLAY TO USER
             let cached_desk = loose_idasen::connect_to_desk_by_name_internal(local_name.clone())
                 .await
                 .ok();

@@ -50,6 +50,9 @@ pub fn bytes_to_position_speed(bytes: &[u8]) -> PositionSpeed {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BtError {
+    #[error("Desk connection not initiated.")]
+    NotInitiated,
+
     #[error("Cannot find the device.")]
     CannotFindDevice,
 
@@ -359,11 +362,12 @@ pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPe
     // Maybe it should be boxed/arced?
     let bt = setup_bt_desk_device(&desk_to_connect).await;
 
-    let _bt_ok = match &bt {
+    // if bt.is_err() {}
+
+    let _bt_ok = match bt {
         Ok(val) => val,
         Err(asd) => {
-            println!("{:?}", asd);
-            panic!("asd");
+            return Err(asd);
         }
     };
 

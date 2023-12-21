@@ -4,6 +4,7 @@
 )]
 
 use std::sync::Mutex;
+use loose_idasen::BtError;
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
@@ -15,8 +16,7 @@ mod config_utils;
 mod loose_idasen;
 mod tray_utils;
 
-#[derive(Default)]
-pub struct TauriSharedDesk(Mutex<Option<PlatformPeripheral>>);
+pub struct TauriSharedDesk(Mutex<Result<PlatformPeripheral, BtError>>);
 
 #[tauri::command]
 fn create_new_elem(
@@ -79,14 +79,14 @@ async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> 
     }
 
     println!("cached desk: some:{}, none:{}", cached_desk.is_ok(), cached_desk.is_err());
-    desk_mutex::assign_desk_to_mutex(&instantiated_desk, cached_desk.ok());
+    desk_mutex::assign_desk_to_mutex(&instantiated_desk, cached_desk);
     println!("Successfuly connected to desk from frontend");
     Ok(())
 }
 
 fn main() {
     let config = config_utils::get_or_create_config();
-    let initiated_desk = TauriSharedDesk(None.into());
+    let initiated_desk = TauriSharedDesk(Mutex::new(Err(BtError::NotInitiated)));
 
     /*
     If there is a desk name present already, do not bother the end user with windows opening/loading. Just connect to his desk.
@@ -96,8 +96,7 @@ fn main() {
         if let Some(local_name) = local_name.clone() {
             // TODO: PASS THIS ERROR TO FRONTEND TO DISPLAY TO USER
             let cached_desk = loose_idasen::connect_to_desk_by_name_internal(local_name.clone())
-                .await
-                .ok();
+                .await;
 
                 desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
         }
@@ -144,7 +143,7 @@ fn main() {
                             If the user is returning(has a config) immidiately close the window, not to eat resources
                             And then proceed to try to create the menu.
                         */
-                        Some(desk) => {
+                        Ok(desk) => {
                             // window
                             //     .close()
                             //     .expect("Error while closing the initial window");
@@ -174,7 +173,7 @@ fn main() {
                                 }
                             }
                         }
-                        None => {
+                        Err(e) => {
                             // Open error window with the error
                             println!("opening error window!");
                             _ = window.set_title("Trayasen - Woops!");
@@ -190,10 +189,11 @@ fn main() {
                                 window.stateWorkaround = {{
                                     title: "The app was not able to connect to your saved desk with name: `{}`.",
                                     description: "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again.",
-                                    desk_name: "{}"
+                                    desk_name: "{}",
+                                    error: "{}"
                                 }}
                         history.replaceState({{}}, '','/error');
-                        "#, actual_loc_name,actual_loc_name).as_str(),
+                        "#, actual_loc_name,actual_loc_name, e).as_str(),
                             );
                         }
                     }

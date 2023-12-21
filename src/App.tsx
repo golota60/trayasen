@@ -59,12 +59,9 @@ const ReturningUserErrorPage = () => {
           Reset app and desk name & open the connect intro menu
         </Button>
       </div>
-      {error && (
-        <>
-          <div>Error content:</div>
-          <div>{error}</div>
-        </>
-      )}
+
+      <div>Error content:</div>
+      <div>{(window as any)?.stateWorkaround?.error || error}</div>
     </div>
   );
 };

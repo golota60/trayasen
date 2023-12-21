@@ -3,7 +3,7 @@
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::Manager;
 
-use crate::TauriSharedDesk;
+use crate::{loose_idasen::BtError, TauriSharedDesk};
 
 pub fn get_desk_from_app_state(app_handle: &tauri::AppHandle) -> PlatformPeripheral {
     let desk = app_handle.state::<TauriSharedDesk>();
@@ -14,7 +14,10 @@ pub fn get_desk_from_app_state(app_handle: &tauri::AppHandle) -> PlatformPeriphe
     desk.clone()
 }
 
-pub fn assign_desk_to_mutex(desk_mutex: &TauriSharedDesk, new_desk: Option<PlatformPeripheral>) {
+pub fn assign_desk_to_mutex(
+    desk_mutex: &TauriSharedDesk,
+    new_desk: Result<PlatformPeripheral, BtError>,
+) {
     *desk_mutex
         .0
         .lock()

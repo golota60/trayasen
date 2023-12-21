@@ -50,6 +50,9 @@ pub fn bytes_to_position_speed(bytes: &[u8]) -> PositionSpeed {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BtError {
+    #[error("Desk connection not initiated.")]
+    NotInitiated,
+
     #[error("Cannot find the device.")]
     CannotFindDevice,
 

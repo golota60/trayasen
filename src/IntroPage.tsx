@@ -14,7 +14,7 @@ import Spinner from "./generic/Spinner";
 import { getAvailableDesks, removeConfig } from "./rustUtils";
 
 const IntroPage = () => {
-  const [data, { error, loading }] = useSimpleAsync(getAvailableDesks, {
+  const [data, { error, loading, retry }] = useSimpleAsync(getAvailableDesks, {
     useLayout: true,
   });
   const [isConnected, setIsConnected] = useState(false);
@@ -90,7 +90,17 @@ const IntroPage = () => {
           </div>
           If your desk has a different name from "Desk XXXX", click the button
           below to expand the list
-          <Button onClick={() => setShowAll(true)}>Show all devices</Button>
+          <div>
+            <Button
+              className="mr-1"
+              onClick={() => {
+                retry();
+              }}
+            >
+              Refresh
+            </Button>
+            <Button onClick={() => setShowAll(true)}>Show all devices</Button>
+          </div>
         </>
       </div>
       <p>Then, add a new postition!</p>

@@ -68,7 +68,7 @@ fn create_new_elem(
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
 async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), String> {
-    println!("trying again...");
+    println!("connecting to desk with name: {}", name);
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
     println!("with desk!...");
     let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await;

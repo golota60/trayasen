@@ -14,24 +14,19 @@ import Spinner from "./generic/Spinner";
 import { getAvailableDesks, removeConfig } from "./rustUtils";
 
 const IntroPage = () => {
-  const [data, { error, loading, retry }] = useSimpleAsync(getAvailableDesks, {
-    useLayout: true,
-  });
+  const [data, { error, loading: devicesLoading, retry }] = useSimpleAsync(
+    getAvailableDesks,
+    {
+      useLayout: true,
+    }
+  );
+  const [connectingLoading, setConnectingLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectedNewDesk, setConnectedNewDesk] = useState<string>();
   const [showAll, setShowAll] = useState(false);
   const [deskError, setDeskError] = useState<string>();
 
   const actualError = error || deskError;
-
-  if (loading) {
-    return (
-      <div>
-        <Spinner size="lg" />
-        Loading...
-      </div>
-    );
-  }
 
   if (actualError) {
     return (
@@ -75,24 +70,35 @@ const IntroPage = () => {
         <>
           <p>No saved desk found. Connect to one of desks listed below:</p>
           <div className="w-64 overflow-x-auto p-2 h-64">
-            {dataToDisplay?.map((e, i) => (
-              <DeskElement
-                key={i}
-                onError={setDeskError}
-                deskName={e.name}
-                onConnect={() => {
-                  setIsConnected(true);
-                  setConnectedNewDesk(e.name);
-                }}
-                isConnected={e.name === connectedNewDesk}
-              />
-            ))}
+            {devicesLoading ? (
+              <div className="flex items-center justify-center flex-col h-full">
+                <Spinner size="lg" />
+                Searching for bluetooth devices...
+              </div>
+            ) : (
+              dataToDisplay?.map((e, i) => (
+                <DeskElement
+                  key={i}
+                  disabled={!!connectingLoading}
+                  onLoadStart={() => setConnectingLoading(true)}
+                  onLoadEnd={() => setConnectingLoading(false)}
+                  onError={setDeskError}
+                  deskName={e.name}
+                  onConnect={() => {
+                    setIsConnected(true);
+                    setConnectedNewDesk(e.name);
+                  }}
+                  isConnected={e.name === connectedNewDesk}
+                />
+              ))
+            )}
           </div>
           If your desk has a different name from "Desk XXXX", click the button
           below to expand the list
           <div>
             <Button
               className="mr-1"
+              disabled={!!connectedNewDesk || !!devicesLoading}
               onClick={() => {
                 retry();
               }}

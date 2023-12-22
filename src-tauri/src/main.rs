@@ -125,7 +125,8 @@ fn main() {
             let config = app.state::<config_utils::ConfigData>();
 
             let loc_name = &config.local_name;
-            let main_window = app.get_window("main").unwrap();
+            let main_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).build().expect("Error while creating window");
+            
 
             match loc_name {
                 Some(actual_loc_name) => {
@@ -143,9 +144,7 @@ fn main() {
                             And then proceed to try to create the menu.
                         */
                         Ok(desk) => {
-                            // main_window
-                            //     .close()
-                            //     .expect("Error while closing the initial window");
+                            main_window.close();
                             // Register all shortcuts
                             let mut shortcut_manager = app.global_shortcut_manager();
                             let all_positions = &config.saved_positions;

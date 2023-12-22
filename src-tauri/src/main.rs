@@ -174,7 +174,7 @@ fn main() {
                         }
                         Err(e) => {
                             // Open error window with the error
-                            println!("opening error window!");
+                            println!("opening error window! error: {}", e);
                             _ = main_window.set_title("Trayasen - Woops!");
                             _ = main_window.set_always_on_top(true);
                             main_window
@@ -192,9 +192,8 @@ fn main() {
                                     desk_name: "{}",
                                     error: "{}"
                                 }}
-                        history.replaceState({{}}, '','/error');
-                        history.go();
-                        "#, actual_loc_name,actual_loc_name, e).as_str(),
+                                history.replaceState({{}}, '','/error');
+                        "#, actual_loc_name,actual_loc_name, e.to_string()).as_str(),
                             );
                         }
                     }

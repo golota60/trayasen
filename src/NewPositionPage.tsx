@@ -206,7 +206,7 @@ const NewPositionPage = () => {
               } else {
                 // exit cause shits been created
                 console.log("closing...");
-                appWindow.hide();
+                appWindow.close();
               }
             }
           }}

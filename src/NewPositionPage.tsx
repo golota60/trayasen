@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { appWindow } from "@tauri-apps/api/window";
 import { Button } from "./generic/button";
 import { Input } from "./generic/input";
@@ -66,54 +66,64 @@ const NewPositionPage = () => {
     string | KeystoreStatusTexts
   >(KeystoreStatusTexts.init);
 
-  const keystrokeHandler: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
-    if (e.defaultPrevented) {
-      return;
-    }
-    console.log(keystrokeText);
-    if (keystrokeText !== KeystoreStatusTexts.capturing) {
-      return;
-    }
-    const clickedKey = lowercaseMap.get(e.key) || e.key;
-
-    const isModifierKey = modifierMap.get(clickedKey);
-    if (isModifierKey) {
-      const existingModifiers = shortcutValue.split("+");
-      // We want to avoid "Shift + Shift" modifiers
-      const isTwoSameModifiers =
-        existingModifiers.length === 1 && existingModifiers[0] === clickedKey;
-      // Max 2 modifiers supported
-      const isMaxTwoModifiers = existingModifiers.length > 1;
-
-      console.log(
-        isTwoSameModifiers,
-        isMaxTwoModifiers,
-        existingModifiers,
-        clickedKey
-      );
-      console.log("end click");
-      if (isTwoSameModifiers || isMaxTwoModifiers) {
-        // Restart the shortcut
-        setShortcutValue(clickedKey);
-
+  const keystrokeHandler = useCallback(
+    (e: KeyboardEvent) => {
+      console.log("key keyed");
+      if (e.defaultPrevented) {
         return;
       }
+      console.log(keystrokeText);
+      if (keystrokeText !== KeystoreStatusTexts.capturing) {
+        return;
+      }
+      const clickedKey = lowercaseMap.get(e.key) || e.key;
+
+      const isModifierKey = modifierMap.get(clickedKey);
+      if (isModifierKey) {
+        const existingModifiers = shortcutValue.split("+");
+        // We want to avoid "Shift + Shift" modifiers
+        const isTwoSameModifiers =
+          existingModifiers.length === 1 && existingModifiers[0] === clickedKey;
+        // Max 2 modifiers supported
+        const isMaxTwoModifiers = existingModifiers.length > 1;
+
+        console.log(
+          isTwoSameModifiers,
+          isMaxTwoModifiers,
+          existingModifiers,
+          clickedKey
+        );
+        console.log("end click");
+        if (isTwoSameModifiers || isMaxTwoModifiers) {
+          // Restart the shortcut
+          setShortcutValue(clickedKey);
+
+          return;
+        }
+        setShortcutValue((prevValue) => {
+          const newVal = prevValue ? `${prevValue}+${clickedKey}` : clickedKey;
+          return newVal;
+        });
+        return;
+      }
+      // Is normal key
+      // If previous value(modifier) exists, append, otherwise take as-is
       setShortcutValue((prevValue) => {
         const newVal = prevValue ? `${prevValue}+${clickedKey}` : clickedKey;
+        setKeystrokeText(newVal);
         return newVal;
       });
-      return;
-    }
-    // Is normal key
-    // If previous value(modifier) exists, append, otherwise take as-is
-    setShortcutValue((prevValue) => {
-      const newVal = prevValue ? `${prevValue}+${clickedKey}` : clickedKey;
-      setKeystrokeText(newVal);
-      return newVal;
-    });
 
-    e.preventDefault();
-  };
+      e.preventDefault();
+    },
+    [keystrokeText, shortcutValue]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", keystrokeHandler);
+
+    return () => document.removeEventListener("keydown", keystrokeHandler);
+  }, [keystrokeHandler]);
 
   const handleRegisterKeyClick = () => {
     setShortcutValue("");
@@ -135,10 +145,7 @@ const NewPositionPage = () => {
   return (
     <>
       <img src="/carrot.png" alt="A carrot logo" />
-      <div
-        className="flex justify-center flex-col"
-        onKeyDown={keystrokeHandler}
-      >
+      <div className="flex justify-center flex-col">
         <h1
           className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
  mt-2 mb-3"

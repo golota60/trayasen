@@ -1,6 +1,6 @@
 [package]
 name = "trayasen"
-version = "0.1.0-beta.0"
+version = "0.1.0-0"
 description = "An app to control IKEA Idasen desk"
 authors = ["Szymon Wiszczuk<szymon.wiszczuk@gmail.com>"]
 license = "MIT"

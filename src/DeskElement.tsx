@@ -7,7 +7,10 @@ interface Props {
   deskName: string;
   onConnect?: () => void;
   onError: (err: string) => void;
+  onLoadStart?: () => void;
+  onLoadEnd?: () => void;
   isConnected?: boolean;
+  disabled?: boolean;
 }
 
 const DeskElement = ({
@@ -15,6 +18,9 @@ const DeskElement = ({
   onConnect,
   onError,
   isConnected = false,
+  disabled,
+  onLoadStart,
+  onLoadEnd,
 }: Props) => {
   const [loading, setLoading] = useState(false);
 
@@ -24,17 +30,18 @@ const DeskElement = ({
     <div className="flex justify-between items-center my-4">
       <span>{deskName}</span>
       <Button
+        disabled={disabled || loading}
         className="flex justify-center items-center"
         onClick={async () => {
           setLoading(true);
+          onLoadStart?.();
           try {
-            const result = await connectToDesk(deskName);
-            console.log("result", result);
+            await connectToDesk(deskName);
           } catch (e) {
-            console.log("error", e);
             onError(e as string);
           }
           setLoading(false);
+          onLoadEnd?.();
           onConnect?.();
         }}
       >

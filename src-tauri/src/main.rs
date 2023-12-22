@@ -68,7 +68,7 @@ fn create_new_elem(
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
 async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), String> {
-    println!("trying again...");
+    println!("connecting to desk with name: {}", name);
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
     println!("with desk!...");
     let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await;
@@ -125,7 +125,7 @@ fn main() {
             let config = app.state::<config_utils::ConfigData>();
 
             let loc_name = &config.local_name;
-            let window = app.get_window("main").unwrap();
+            let main_window = app.get_window("main").unwrap();
 
             match loc_name {
                 Some(actual_loc_name) => {
@@ -143,9 +143,9 @@ fn main() {
                             And then proceed to try to create the menu.
                         */
                         Ok(desk) => {
-                            // window
-                            //     .close()
-                            //     .expect("Error while closing the initial window");
+                            main_window
+                                .hide()
+                                .expect("Error while closing the initial window");
                             // Register all shortcuts
                             let mut shortcut_manager = app.global_shortcut_manager();
                             let all_positions = &config.saved_positions;
@@ -175,15 +175,16 @@ fn main() {
                         Err(e) => {
                             // Open error window with the error
                             println!("opening error window!");
-                            _ = window.set_title("Trayasen - Woops!");
-                            window
+                            _ = main_window.set_title("Trayasen - Woops!");
+                            _ = main_window.set_always_on_top(true);
+                            main_window
                                 .show()
                                 .expect("Error while trying to show the window");
                             
                             // TODO: Passing state as a string literal to window via `eval` is a terrible way to handle state.
                             // This should be passed/handled via tauri state.
             
-                            _ = window.eval(
+                            _ = main_window.eval(
                                 format!(r#"
                                 window.stateWorkaround = {{
                                     title: "The app was not able to connect to your saved desk with name: `{}`.",
@@ -192,6 +193,7 @@ fn main() {
                                     error: "{}"
                                 }}
                         history.replaceState({{}}, '','/error');
+                        history.go();
                         "#, actual_loc_name,actual_loc_name, e).as_str(),
                             );
                         }
@@ -199,7 +201,7 @@ fn main() {
                 }
                 None => {
                     // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
-                    window
+                    main_window
                         .show()
                         .expect("Error while trying to show the window");
                 }
@@ -257,6 +259,16 @@ fn main() {
                 So, when we detected an exit requested, just to be safe, refresh the system tray.
                 TODO: We should probably have a way of checking for new elements, to remove redundant system tray refreshes
             */
+            tauri::RunEvent::WindowEvent { label: _, event: window_event, .. } => match window_event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    // Whenever a close is clicked, we are not actually closing the window, but hiding it. 
+                    // Why? Cause https://github.com/tauri-apps/tauri/issues/5519
+                    // Also, it's way faster and better UX to hide/show rather than open/close. 
+                    api.prevent_close();
+                    _ = app_handle.get_window("main").unwrap().hide();
+                },
+                _ => {}
+            }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 println!("Exit requested");
                 let config = config_utils::get_config();

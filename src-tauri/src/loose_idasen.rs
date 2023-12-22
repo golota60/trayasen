@@ -53,6 +53,12 @@ pub enum BtError {
     #[error("Desk connection not initiated.")]
     NotInitiated,
 
+    #[error("Unknown error while connecting.")]
+    UnknownConnect,
+
+    #[error("Unknown error while discovering services.")]
+    UnknownDiscover,
+
     #[error("Cannot find the device.")]
     CannotFindDevice,
 
@@ -88,13 +94,30 @@ pub async fn setup_bt_desk_device(
 ) -> Result<ConnectedBtDevice<impl ApiPeripheral>, BtError> {
     let mac_addr = BDAddr::default();
     println!("got the mac! desk: {:?}", &device);
-    device.connect().await?;
-    device.discover_services().await?;
+    let connection_result = device.connect().await;
+    match connection_result {
+        Err(conn_err) => {
+            println!("Error while connection: {}", conn_err);
+            return Err(BtError::UnknownConnect);
+        }
+        _ => {}
+    }
+    println!("After connect...");
+    let discover_result = device.discover_services().await;
+    match discover_result {
+        Err(disc_err) => {
+            println!("Error while discovering: {}", disc_err);
+            return Err(BtError::UnknownDiscover);
+        }
+        _ => {}
+    }
+    println!("After service discover...");
 
     let control_characteristic = get_control_characteristic(device).await;
     let position_characteristic = get_position_characteristic(device).await;
 
     if device.subscribe(&position_characteristic).await.is_err() {
+        println!("Error while subscribing...");
         return Err(BtError::CannotSubscribePosition);
     };
     println!("Desk is fully set up");

@@ -143,9 +143,9 @@ fn main() {
                             And then proceed to try to create the menu.
                         */
                         Ok(desk) => {
-                            main_window
-                                .hide()
-                                .expect("Error while closing the initial window");
+                            // main_window
+                            //     .close()
+                            //     .expect("Error while closing the initial window");
                             // Register all shortcuts
                             let mut shortcut_manager = app.global_shortcut_manager();
                             let all_positions = &config.saved_positions;
@@ -258,16 +258,6 @@ fn main() {
                 So, when we detected an exit requested, just to be safe, refresh the system tray.
                 TODO: We should probably have a way of checking for new elements, to remove redundant system tray refreshes
             */
-            tauri::RunEvent::WindowEvent { label: _, event: window_event, .. } => match window_event {
-                tauri::WindowEvent::CloseRequested { api, .. } => {
-                    // Whenever a close is clicked, we are not actually closing the window, but hiding it. 
-                    // Why? Cause https://github.com/tauri-apps/tauri/issues/5519
-                    // Also, it's way faster and better UX to hide/show rather than open/close. 
-                    api.prevent_close();
-                    _ = app_handle.get_window("main").unwrap().hide();
-                },
-                _ => {}
-            }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 println!("Exit requested");
                 let config = config_utils::get_config();

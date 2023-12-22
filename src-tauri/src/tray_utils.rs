@@ -1,47 +1,59 @@
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 pub fn handle_exit_menu_click() {
     std::process::exit(0);
 }
 
 pub fn handle_about_menu_click(app: &AppHandle) {
-    let main_window = app.get_window("main").unwrap();
-
-    _ = main_window.set_always_on_top(true);
-    _ = main_window.eval(
-        r#"
-        history.replaceState({}, '','/about');
-        history.go();
-"#,
-    );
-    _ = main_window.set_title("Trayasen - About/Options");
-    _ = main_window.show();
+    match tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+        .always_on_top(true)
+        .initialization_script(
+            r#"
+    history.replaceState({}, '','/about');
+    "#,
+        )
+        .title("Trayasen - About/Options")
+        .build()
+    {
+        Ok(_) => {}
+        Err(_) => {
+            println!("Error while trying to open about window");
+        }
+    }
 }
 
 pub fn handle_new_position_menu_click(app: &AppHandle) {
-    let main_window = app.get_window("main").unwrap();
-
-    _ = main_window.set_always_on_top(true);
-    _ = main_window.eval(
-        r#"
-        history.replaceState({}, '','/new-position');
-        history.go();
-"#,
-    );
-    _ = main_window.set_title("Trayasen - Add position");
-    _ = main_window.show();
+    match tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+        .always_on_top(true)
+        .initialization_script(
+            r#"
+    history.replaceState({}, '','/new-position');
+    "#,
+        )
+        .title("Trayasen - Add position")
+        .build()
+    {
+        Ok(_) => {}
+        Err(_) => {
+            println!("Error while trying to open new postition window");
+        }
+    }
 }
 
 pub fn handle_manage_positions_menu_click(app: &AppHandle) {
-    let main_window = app.get_window("main").unwrap();
-
-    _ = main_window.set_always_on_top(true);
-    _ = main_window.eval(
-        r#"
+    match tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+        .always_on_top(true)
+        .initialization_script(
+            r#"
     history.replaceState({}, '','/manage-positions');
-    history.go();
-"#,
-    );
-    _ = main_window.set_title("Trayasen - Manage positions");
-    _ = main_window.show();
+    "#,
+        )
+        .title("Trayasen - Manage positions")
+        .build()
+    {
+        Ok(_) => {}
+        Err(_) => {
+            println!("Error while trying to open manage positions window");
+        }
+    }
 }

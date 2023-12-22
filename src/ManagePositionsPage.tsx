@@ -60,7 +60,7 @@ const ManagePositionsPage = () => {
         </Link>
         <Button
           onClick={() => {
-            appWindow.hide();
+            appWindow.close();
           }}
         >
           Close

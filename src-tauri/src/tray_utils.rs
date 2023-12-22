@@ -1,77 +1,47 @@
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 pub fn handle_exit_menu_click() {
     std::process::exit(0);
 }
 
-// pub fn handle_error_window_show(app: &AppHandle) {
-//     match tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
-//         .always_on_top(true)
-//         .initialization_script(
-//             r#"
-//         history.replaceState({}, '','/error');
-//         "#,
-//         )
-//         .title("Trayasen - Woops!")
-//         .build()
-//     {
-//         Ok(_) => {}
-//         Err(err) => {
-//             println!("Error while trying to open error window. Err: {:?}", err);
-//         }
-//     }
-// }
-
 pub fn handle_about_menu_click(app: &AppHandle) {
-    match tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
-        .always_on_top(true)
-        .initialization_script(
-            r#"
-    history.replaceState({}, '','/about');
-    "#,
-        )
-        .title("Trayasen - About/Options")
-        .build()
-    {
-        Ok(_) => {}
-        Err(_) => {
-            println!("Error while trying to open about window");
-        }
-    }
+    let main_window = app.get_window("main").unwrap();
+
+    _ = main_window.set_always_on_top(true);
+    _ = main_window.eval(
+        r#"
+        history.replaceState({}, '','/about');
+        history.go();
+"#,
+    );
+    _ = main_window.set_title("Trayasen - About/Options");
+    _ = main_window.show();
 }
 
 pub fn handle_new_position_menu_click(app: &AppHandle) {
-    match tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
-        .always_on_top(true)
-        .initialization_script(
-            r#"
-    history.replaceState({}, '','/new-position');
-    "#,
-        )
-        .title("Trayasen - Add position")
-        .build()
-    {
-        Ok(_) => {}
-        Err(_) => {
-            println!("Error while trying to open new postition window");
-        }
-    }
+    let main_window = app.get_window("main").unwrap();
+
+    _ = main_window.set_always_on_top(true);
+    _ = main_window.eval(
+        r#"
+        history.replaceState({}, '','/new-position');
+        history.go();
+"#,
+    );
+    _ = main_window.set_title("Trayasen - Add position");
+    _ = main_window.show();
 }
 
 pub fn handle_manage_positions_menu_click(app: &AppHandle) {
-    match tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
-        .always_on_top(true)
-        .initialization_script(
-            r#"
+    let main_window = app.get_window("main").unwrap();
+
+    _ = main_window.set_always_on_top(true);
+    _ = main_window.eval(
+        r#"
     history.replaceState({}, '','/manage-positions');
-    "#,
-        )
-        .title("Trayasen - Manage positions")
-        .build()
-    {
-        Ok(_) => {}
-        Err(_) => {
-            println!("Error while trying to open manage positions window");
-        }
-    }
+    history.go();
+"#,
+    );
+    _ = main_window.set_title("Trayasen - Manage positions");
+    _ = main_window.show();
 }

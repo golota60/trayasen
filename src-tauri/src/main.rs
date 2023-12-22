@@ -125,7 +125,7 @@ fn main() {
             let config = app.state::<config_utils::ConfigData>();
 
             let loc_name = &config.local_name;
-            let main_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).build().expect("Error while creating window");
+            let init_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Setup").always_on_top(true).build().expect("Error while creating window");
             
 
             match loc_name {
@@ -144,7 +144,8 @@ fn main() {
                             And then proceed to try to create the menu.
                         */
                         Ok(desk) => {
-                            main_window.close();
+                            _ = init_window.close();
+                            // main_window.close();
                             // Register all shortcuts
                             let mut shortcut_manager = app.global_shortcut_manager();
                             let all_positions = &config.saved_positions;
@@ -174,16 +175,16 @@ fn main() {
                         Err(e) => {
                             // Open error window with the error
                             println!("opening error window! error: {}", e);
-                            _ = main_window.set_title("Trayasen - Woops!");
-                            _ = main_window.set_always_on_top(true);
-                            main_window
+                            _ = init_window.set_title("Trayasen - Woops!");
+                            _ = init_window.set_always_on_top(true);
+                            init_window
                                 .show()
                                 .expect("Error while trying to show the window");
                             
                             // TODO: Passing state as a string literal to window via `eval` is a terrible way to handle state.
                             // This should be passed/handled via tauri state.
             
-                            _ = main_window.eval(
+                            _ = init_window.eval(
                                 format!(r#"
                                 window.stateWorkaround = {{
                                     title: "The app was not able to connect to your saved desk with name: `{}`.",
@@ -199,7 +200,7 @@ fn main() {
                 }
                 None => {
                     // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
-                    main_window
+                    init_window
                         .show()
                         .expect("Error while trying to show the window");
                 }

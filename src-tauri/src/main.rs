@@ -123,10 +123,7 @@ fn main() {
                 and register all the shortcuts
             */
             let config = app.state::<config_utils::ConfigData>();
-
             let loc_name = &config.local_name;
-
-            
 
             match loc_name {
                 Some(actual_loc_name) => {
@@ -144,7 +141,6 @@ fn main() {
                             And then proceed to try to create the menu.
                         */
                         Ok(desk) => {
-                            // _ = init_window.close();
                             // Register all shortcuts
                             let mut shortcut_manager = app.global_shortcut_manager();
                             let all_positions = &config.saved_positions;
@@ -175,10 +171,6 @@ fn main() {
                             let err_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Woops!").always_on_top(true).build().expect("Error while creating window");
                             // Open error window with the error
                             println!("opening error window! error: {}", e);
-                            
-                            // err_window
-                            //     .show()
-                            //     .expect("Error while trying to show the window");
                             
                             // TODO: Passing state as a string literal to window via `eval` is a terrible way to handle state.
                             // This should be passed/handled via tauri state.

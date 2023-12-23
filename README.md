@@ -89,6 +89,27 @@ Fix 2:
 
 1. Next, try adding a bluetooth device. You should see your desk with the name `Desk XXXX`. Connect to it. After successful connection, you should be able to connect to it from Trayasen. 
 
+- `Desk connection not initiated`
+
+This is a signal from an application, that we're trying to perform a bluetooth operation without being connected to a desk. That might mean that we're trying to move the desk without the setup step. If you encounter this, please open an issue with reproduction steps.
+
+- `Unknown error while connecting`
+
+This usually means that the desk you're trying to connect to, is refusing the connection. Usually, the most common fix is to hold down the bluetooth button you have on the desk handle, until the blue light starts flashing, and then retrying the connection.
+
+- `Cannot find the device` 
+
+This usually means, that your saved desk is not visible to your PC's bluetooth. Usually, the most common fix is to hold down the bluetooth button you have on the desk handle, until the blue light starts flashing, and then retrying the connection.
+
+- `Cannot subscribe to read position`
+
+Means that the bluetooth connection with your desk was successful, but for some reason your PC has problems talking to it. Usually, the most common fix is to hold down the bluetooth button you have on the desk handle, until the blue light starts flashing, and then retrying the connection.
+
+- `bltleplug error: <content>` 
+
+This means the applications bluetooth library encountered something it wasn't expecting. If you encounter this, please create an issue with your system and reproduction steps
+
+
 - Shortcut not working
 
 Shortcuts are a pain, and we're limited by the upstream framework we're using. See [this](https://github.com/golota60/trayasen/issues/20#issuecomment-1868359329), [this](https://github.com/golota60/trayasen/issues/20#issuecomment-1725195092) and [this](https://github.com/golota60/trayasen/issues/16#issuecomment-1724970876) for context.

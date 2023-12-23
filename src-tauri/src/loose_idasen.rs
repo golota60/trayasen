@@ -74,7 +74,7 @@ pub enum BtError {
     #[error("errored to parse mac address.")]
     MacAddrParseFailed(#[from] ParseBDAddrError),
 
-    #[error("bluetooth error {0}")]
+    #[error("btleplug error: {0}")]
     BtlePlugError(#[from] btleplug::Error),
 }
 

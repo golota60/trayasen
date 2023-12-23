@@ -56,18 +56,7 @@
     "updater": {
       "active": false
     },
-    "windows": [
-      {
-        "fullscreen": false,
-        "height": 720,
-        "resizable": true,
-        "title": "Trayasen - Setup",
-        "label": "main",
-        "width": 1280,
-        "visible": false,
-        "alwaysOnTop": false
-      }
-    ],
+    "windows": [],
     "systemTray": {
       "iconPath": "icons/carrot.png",
       "iconAsTemplate": true

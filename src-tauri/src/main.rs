@@ -145,6 +145,8 @@ fn main() {
                             let mut shortcut_manager = app.global_shortcut_manager();
                             let all_positions = &config.saved_positions;
                             let cloned_pos = all_positions.clone();
+
+                            // A lot of combinations do not not seem to be supported by tauri. Don't know for sure since there are no docs.
                             for pos in cloned_pos.into_iter() {
                                 // Each iteration needs it's own clone; we do not want to consume the app state
                                 let cloned_desk = desk.clone();

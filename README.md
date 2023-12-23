@@ -85,9 +85,9 @@ Fix 1:
 
 Fix 2:
 1. In bluetooth settings, set the following option to "Advanced" 
-<img src="https://github.com/golota60/trayasen/blob/master/win-bluetooth.png" width="200">
+<img src="https://github.com/golota60/trayasen/blob/master/win-bluetooth.png">
 
-2. Next, try adding a bluetooth device. You should see your desk with the name `Desk XXXX`. Connect to it. After successful connection, you should be able to connect to it from Trayasen. 
+1. Next, try adding a bluetooth device. You should see your desk with the name `Desk XXXX`. Connect to it. After successful connection, you should be able to connect to it from Trayasen. 
 
 - Shortcut not working
 

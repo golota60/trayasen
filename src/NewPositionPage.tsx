@@ -8,11 +8,10 @@ import { Label } from "./generic/label";
 
 // Maps browser keys into accelerator keys
 const modifierMap = new Map<string, string>([
-  ["Command", "Cmd"],
-  ["Control", "Ctrl"],
+  ["Command", "CmdOrCtrl"],
+  ["Control", "CmdOrCtrl"],
   ["Alt", "Alt"],
   ["Option", "Option"],
-  ["AltGraph", "AltGr"],
   ["Shift", "Shift"],
   ["Super", "Super"],
   ["Meta", "Meta"],
@@ -76,6 +75,7 @@ const NewPositionPage = () => {
       if (keystrokeText !== KeystoreStatusTexts.capturing) {
         return;
       }
+      console.log("raw key:", e.key, e.code);
       const clickedKey = lowercaseMap.get(e.key) || e.key;
 
       const isModifierKey = modifierMap.get(clickedKey);

@@ -85,9 +85,15 @@ Fix 1:
 
 Fix 2:
 1. In bluetooth settings, set the following option to "Advanced" 
-<img src="https://github.com/golota60/trayasen/blob/master/win-bluetooth.png" width="200">
+<img src="https://github.com/golota60/trayasen/blob/master/win-bluetooth.png">
 
-2. Next, try adding a bluetooth device. You should see your desk with the name `Desk XXXX`. Connect to it. After successful connection, you should be able to connect to it from Trayasen. 
+1. Next, try adding a bluetooth device. You should see your desk with the name `Desk XXXX`. Connect to it. After successful connection, you should be able to connect to it from Trayasen. 
+
+- Shortcut not working
+
+Shortcuts are a pain, and we're limited by the upstream framework we're using. See [this](https://github.com/golota60/trayasen/issues/20#issuecomment-1868359329), [this](https://github.com/golota60/trayasen/issues/20#issuecomment-1725195092) and [this](https://github.com/golota60/trayasen/issues/16#issuecomment-1724970876) for context.
+
+If you cannot register a shortcut you want, please advise the comments above. You essentially need to manually open the config file and try different key combinations.
 
 
 ## Self-compiling

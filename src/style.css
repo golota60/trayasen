@@ -23,10 +23,6 @@
   border: 3px solid var(--primary-scroll);
 }
 
-#root {
-  width: 100vw;
-  height: 100vh;
-}
 
 @tailwind base;
 @tailwind components;
@@ -81,6 +77,12 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
 .titlebar {
   height: 30px;
   background: #190781;

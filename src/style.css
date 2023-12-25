@@ -93,6 +93,9 @@
   left: 0;
   right: 0;
 }
+#titlebar-close:hover {
+  background: #be1a54;
+}
 .titlebar-button {
   display: inline-flex;
   justify-content: center;

@@ -19,14 +19,23 @@ mod tray_utils;
 
 pub struct TauriSharedDesk(Mutex<Result<PlatformPeripheral, BtError>>);
 
+// Whether a system should have custom decorations or not
+#[tauri::command]
+fn has_custom_decorations() -> bool {
+    if cfg!(windows) {
+        return true;
+    }
+    false
+}
+
 pub trait WindowInitUtils {
     fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window;
 } 
 
 impl WindowInitUtils for WindowBuilder<'_> {
     fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window {
-        // We want to replace borders only on windows, as on macOS they are pretty enough, and on Linux it's not that nice
-        let mut window_builder = if cfg!(windows) {
+        // We want to replace borders only on windows, as on macOS they are pretty enough, and on Linux it's not supported by `window_shadows`
+        let mut window_builder = if has_custom_decorations() {
             self.inner_size(1280.0, 720.0).title(title).always_on_top(true).decorations(false)
         } else {
             self.inner_size(1280.0, 720.0).title(title).always_on_top(true)
@@ -37,7 +46,7 @@ impl WindowInitUtils for WindowBuilder<'_> {
         }
 
         let window_instance= window_builder.build().expect(err_msg);
-        if cfg!(windows) {
+        if has_custom_decorations() {
             set_shadow(&window_instance, true).unwrap();
         }
         window_instance
@@ -243,6 +252,7 @@ fn main() {
             config_utils::reset_desk,
             loose_idasen::get_available_desks_to_connect,
             connect_to_desk_by_name,
+            has_custom_decorations
         ])
         .enable_macos_default_menu(false)
         // Register all the tray events, eg. clicks and stuff

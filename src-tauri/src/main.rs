@@ -10,6 +10,7 @@ use tauri_plugin_autostart::MacosLauncher;
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use tauri::GlobalShortcutManager;
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
+use window_shadows::set_shadow;
 
 mod desk_mutex;
 mod config_utils;
@@ -170,7 +171,10 @@ fn main() {
                             }
                         }
                         Err(e) => {
-                            let err_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Woops!").always_on_top(true).build().expect("Error while creating window");
+                            let err_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Woops!").always_on_top(true).decorations(false).build().expect("Error while creating window");
+                            
+                            #[cfg(any(windows, target_os = "macos"))]
+                            set_shadow(&err_window, true).unwrap();
                             // Open error window with the error
                             println!("opening error window! error: {}", e);
                             
@@ -191,12 +195,16 @@ fn main() {
                     }
                 }
                 None => {
-                    let init_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Setup").always_on_top(true).build().expect("Error while creating window");
+                    let init_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Setup").always_on_top(true).decorations(false).build().expect("Error while creating window");
 
                     // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
                     init_window
                         .show()
                         .expect("Error while trying to show the window");
+
+                    
+                    #[cfg(any(windows, target_os = "macos"))]
+                    set_shadow(&init_window, true).unwrap();
                 }
             }
 

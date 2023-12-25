@@ -52,3 +52,7 @@ export const removeConfig = async () => {
 export const resetDesk = async () => {
   return await invoke("reset_desk");
 };
+
+export const hasCustomDecorations = async () => {
+  return await invoke("has_custom_decorations");
+};

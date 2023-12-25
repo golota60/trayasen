@@ -23,6 +23,7 @@ tokio = { version = "1.35.0", features = ["full"] }
 thiserror = "1.0.50"
 uuid = "1.6.1"
 tauri-plugin-autostart = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+window-shadows = "0.2.2"
 
 [features]
 # by default Tauri runs in production mode

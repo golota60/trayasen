@@ -23,10 +23,6 @@
   border: 3px solid var(--primary-scroll);
 }
 
-#root {
-  width: 100vw;
-  height: 100vh;
-}
 
 @tailwind base;
 @tailwind components;
@@ -80,4 +76,35 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+.titlebar {
+  height: 30px;
+  background: #190781;
+  user-select: none;
+  display: flex;
+  justify-content: flex-end;
+  position: fixed;
+  border-radius: 6px 6px 0px 0px;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+#titlebar-close:hover {
+  background: #be1a54;
+}
+.titlebar-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+}
+.titlebar-button:hover {
+  background: #5b6bc3;
 }

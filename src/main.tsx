@@ -19,7 +19,7 @@ if (customDecorations) {
     ?.addEventListener("click", () => appWindow.close());
 } else {
   // if window doesn't have custom decorations, remove the titlebar altogether
-  document?.getElementById("titlebar")?.remove();
+  document?.querySelector(".titlebar")?.remove();
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

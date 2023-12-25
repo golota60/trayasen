@@ -8,7 +8,7 @@ use loose_idasen::BtError;
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
-use tauri::GlobalShortcutManager;
+use tauri::{GlobalShortcutManager, Window, WindowBuilder};
 use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
 use window_shadows::set_shadow;
 
@@ -18,6 +18,32 @@ mod loose_idasen;
 mod tray_utils;
 
 pub struct TauriSharedDesk(Mutex<Result<PlatformPeripheral, BtError>>);
+
+pub trait WindowInitUtils {
+    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window;
+} 
+
+impl WindowInitUtils for WindowBuilder<'_> {
+    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window {
+        // We want to replace borders only on windows, as on macOS they are pretty enough, and on Linux it's not that nice
+        let mut window_builder = if cfg!(windows) {
+            self.inner_size(1280.0, 720.0).title(title).always_on_top(true).decorations(false)
+        } else {
+            self.inner_size(1280.0, 720.0).title(title).always_on_top(true)
+        };
+
+        if let Some(init_script) = init_script {
+            window_builder = window_builder.initialization_script(init_script);
+        }
+
+        let window_instance= window_builder.build().expect(err_msg);
+        if cfg!(windows) {
+            set_shadow(&window_instance, true).unwrap();
+        }
+        window_instance
+    }
+}
+
 
 #[tauri::command]
 fn create_new_elem(
@@ -171,10 +197,8 @@ fn main() {
                             }
                         }
                         Err(e) => {
-                            let err_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Woops!").always_on_top(true).decorations(false).build().expect("Error while creating window");
+                            let err_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).init_trayasen("Trayasen - Woops!","Error while creating window", None);
                             
-                            #[cfg(any(windows, target_os = "macos"))]
-                            set_shadow(&err_window, true).unwrap();
                             // Open error window with the error
                             println!("opening error window! error: {}", e);
                             
@@ -195,8 +219,8 @@ fn main() {
                     }
                 }
                 None => {
-                    let init_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).inner_size(1280.0, 720.0).title("Trayasen - Setup").always_on_top(true).decorations(false).build().expect("Error while creating window");
-
+                    let init_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).init_trayasen("Trayasen - Setup", "Error while creating window", None);
+                    
                     // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
                     init_window
                         .show()

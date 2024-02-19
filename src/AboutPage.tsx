@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { relaunch } from "@tauri-apps/api/process";
+import { relaunch } from "@tauri-apps/plugin-process";
 import useSimpleAsync from "use-simple-async";
 import { enable, isEnabled, disable } from "tauri-plugin-autostart-api";
 import { HelpCircle } from "lucide-react";

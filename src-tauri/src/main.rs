@@ -8,8 +8,10 @@ use loose_idasen::BtError;
 use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
-use tauri::{GlobalShortcutManager, Window, WindowBuilder};
-use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
+use tauri::{Runtime, WebviewWindow, WebviewWindowBuilder, Window};
+use tauri::{async_runtime::block_on, Manager};
+use tauri::tray::{TrayIcon, TrayIconBuilder};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut, ShortcutWrapper};
 use window_shadows::set_shadow;
 
 mod desk_mutex;
@@ -29,11 +31,11 @@ fn has_custom_decorations() -> bool {
 }
 
 pub trait WindowInitUtils {
-    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window;
+    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> WebviewWindow<impl Runtime>;
 } 
 
-impl WindowInitUtils for WindowBuilder<'_> {
-    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window {
+impl <R: Runtime, M: tauri::Manager<R>>WindowInitUtils for WebviewWindowBuilder<'_, R, M> {
+    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> WebviewWindow<impl Runtime> {
         // We want to replace borders only on windows, as on macOS they are pretty enough, and on Linux it's not supported by `window_shadows`
         let mut window_builder = if has_custom_decorations() {
             self.inner_size(1280.0, 720.0).title(title).always_on_top(true).decorations(false)
@@ -62,7 +64,7 @@ fn create_new_elem(
     shortcutvalue: Option<String>,
 ) -> String {
     let mut config = config_utils::get_config();
-    let mut shortcut_manager = app_handle.global_shortcut_manager();
+    let mut shortcut_manager = app_handle.global_shortcut();
 
     println!("shortcut_acc: {:?}", shortcutvalue);
 
@@ -86,13 +88,14 @@ fn create_new_elem(
             let cloned_desk = desk.clone();
             if let Some(shortcut_acc) = shortcutvalue {
                 if shortcut_acc != "" {
-                    _ = shortcut_manager.register(shortcut_acc.as_str(), move || {
-                        block_on(async {
-                            loose_idasen::move_to_target(&cloned_desk, value)
-                                .await
-                                .unwrap();
-                        });
-                    });
+                    // TODO(v2): Actually ha
+                    // _ = shortcut_manager.register(shortcut_acc.as_str(), move || {
+                    //     block_on(async {
+                    //         loose_idasen::move_to_target(&cloned_desk, value)
+                    //             .await
+                    //             .unwrap();
+                    //     });
+                    // });
                 }
             }
 
@@ -139,16 +142,17 @@ fn main() {
 
     println!("Loaded config: {:?}", config);
 
-    let tray_skeleton = config_utils::create_main_tray_menu(&config);
-    let tray = SystemTray::new().with_menu(tray_skeleton);
+    // let tray_skeleton = config_utils::create_main_tray_menu(&config);
+    // let tray = TrayIconBuilder::with_id("tray_id").with_menu(tray_skeleton);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_global_shortcut::Builder::default().build())
         // Pass the tray instance to tauri to manage
-        .system_tray(tray)
+        // .system_tray(tray)
         // Pass the desk instance to tauri to manage
         .manage(initiated_desk)
         // Pass the previously instantiates config. We ideally want to read fs only once.
@@ -178,7 +182,7 @@ fn main() {
                         */
                         Ok(desk) => {
                             // Register all shortcuts
-                            let mut shortcut_manager = app.global_shortcut_manager();
+                            let mut shortcut_manager = app.global_shortcut();
                             let all_positions = &config.saved_positions;
                             let cloned_pos = all_positions.clone();
 
@@ -188,25 +192,26 @@ fn main() {
                                 let cloned_desk = desk.clone();
                                 if let Some(shortcut_key) = &pos.shortcut {
                                     if shortcut_key != "" {
-                                        _ = shortcut_manager.register(
-                                            shortcut_key.as_str(),
-                                            move || {
-                                                block_on(async {
-                                                    loose_idasen::move_to_target(
-                                                        &cloned_desk,
-                                                        pos.value,
-                                                    )
-                                                    .await
-                                                    .unwrap();
-                                                });
-                                            },
-                                        );
+                                        // TODO(v2): Use the actual hotkey. For now, this is just hardcoded as `N` key.
+                                        let wrap =  Shortcut::new(None,Code::KeyN);
+                                        // _ = shortcut_manager.register(,
+                                        //     move || {
+                                        //         block_on(async {
+                                        //             loose_idasen::move_to_target(
+                                        //                 &cloned_desk,
+                                        //                 pos.value,
+                                        //             )
+                                        //             .await
+                                        //             .unwrap();
+                                        //         });
+                                        //     },
+                                        // );
                                     }
                                 }
                             }
                         }
                         Err(e) => {
-                            let err_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).init_trayasen("Trayasen - Woops!","Error while creating window", None);
+                            let err_window = tauri::WebviewWindowBuilder::new(app, "init_window", tauri::WebviewUrl::App("index.html".into())).init_trayasen("Trayasen - Woops!","Error while creating window", None);
                             
                             // Open error window with the error
                             println!("opening error window! error: {}", e);
@@ -228,7 +233,7 @@ fn main() {
                     }
                 }
                 None => {
-                    let init_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).init_trayasen("Trayasen - Setup", "Error while creating window", None);
+                    let init_window = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into())).init_trayasen("Trayasen - Setup", "Error while creating window", None);
                     
                     // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
                     init_window
@@ -256,34 +261,34 @@ fn main() {
         ])
         .enable_macos_default_menu(false)
         // Register all the tray events, eg. clicks and stuff
-        .on_system_tray_event(move |app, event| match event {
-            SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-                config_utils::QUIT_ID => tray_utils::handle_exit_menu_click(),
-                config_utils::ABOUT_ID => tray_utils::handle_about_menu_click(app),
-                config_utils::ADD_POSITION_ID => tray_utils::handle_new_position_menu_click(app),
-                config_utils::MANAGE_POSITIONS_ID => {
-                    tray_utils::handle_manage_positions_menu_click(app)
-                }
-                // If event is not one of predefined, assume a position has been clicked
-                remaining_id => {
-                    // Get config one more time, in case there's a new position added since intialization
-                    let config = config_utils::get_config();
-                    let updated_menus = config_utils::get_menu_items_from_config(&config);
-                    let found_elem = updated_menus
-                        .iter()
-                        .find(|pos| pos.position_elem.id_str == remaining_id)
-                        .expect("Clicked element not found");
-                    block_on(async {
-                        let desk = desk_mutex::get_desk_from_app_state(app);
+        // .on_system_tray_event(move |app, event| match event {
+        //     SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
+        //         config_utils::QUIT_ID => tray_utils::handle_exit_menu_click(),
+        //         config_utils::ABOUT_ID => tray_utils::handle_about_menu_click(app),
+        //         config_utils::ADD_POSITION_ID => tray_utils::handle_new_position_menu_click(app),
+        //         config_utils::MANAGE_POSITIONS_ID => {
+        //             tray_utils::handle_manage_positions_menu_click(app)
+        //         }
+        //         // If event is not one of predefined, assume a position has been clicked
+        //         remaining_id => {
+        //             // Get config one more time, in case there's a new position added since intialization
+        //             let config = config_utils::get_config();
+        //             let updated_menus = config_utils::get_menu_items_from_config(&config);
+        //             let found_elem = updated_menus
+        //                 .iter()
+        //                 .find(|pos| pos.position_elem.id_str == remaining_id)
+        //                 .expect("Clicked element not found");
+        //             block_on(async {
+        //                 let desk = desk_mutex::get_desk_from_app_state(app);
 
-                        loose_idasen::move_to_target(&desk, found_elem.value)
-                            .await
-                            .unwrap();
-                    });
-                }
-            },
-            _ => {}
-        })
+        //                 loose_idasen::move_to_target(&desk, found_elem.value)
+        //                     .await
+        //                     .unwrap();
+        //             });
+        //         }
+        //     },
+        //     _ => {}
+        // })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(move |app_handle, event| match event {
@@ -297,11 +302,11 @@ fn main() {
             tauri::RunEvent::ExitRequested { api, .. } => {
                 println!("Exit requested");
                 let config = config_utils::get_config();
-                let main_menu = config_utils::create_main_tray_menu(&config);
-                app_handle
-                    .tray_handle()
-                    .set_menu(main_menu)
-                    .expect("Error whilst unwrapping main menu");
+                // let main_menu = config_utils::create_main_tray_menu(&config);
+                // app_handle
+                //     .tray_handle()
+                //     .set_menu(main_menu)
+                //     .expect("Error whilst unwrapping main menu");
 
                 // Do not actually exit the app
                 api.prevent_exit();

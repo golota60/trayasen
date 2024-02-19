@@ -4,10 +4,8 @@ use std::{
     fs::{self, read_to_string, remove_file, OpenOptions},
     io::Write,
 };
-use tauri::{
-    api::path::data_dir, CustomMenuItem, GlobalShortcutManager, SystemTrayMenu, SystemTrayMenuItem,
-    SystemTraySubmenu,
-};
+use tauri::menu::{MenuItemBuilder, Submenu, SubmenuBuilder};
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 
@@ -32,7 +30,7 @@ pub struct ConfigData {
 
 fn get_config_path() -> String {
     let mut dir = data_dir()
-        .expect("Error whiel unwrapping data directory")
+        .expect("Error while unwrapping data directory")
         .to_str()
         .expect("err")
         .to_string();
@@ -104,7 +102,7 @@ pub fn save_local_name(new_local_name: String) {
 
 #[tauri::command]
 pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigData {
-    let mut shortcut_manager = app_handle.global_shortcut_manager();
+    let mut shortcut_manager = app_handle.global_shortcut();
     let mut conf = get_config();
 
     let elem_to_unregister = conf.saved_positions.iter().find(|pos| pos_name == pos.name);
@@ -175,65 +173,65 @@ pub fn reset_desk() {
 }
 
 pub struct MenuConfigItem {
-    pub position_elem: CustomMenuItem,
+    pub position_elem: MenuItemBuilder,
     pub name: String,
     pub value: u16,
     pub conf_item_title: String,
 }
 
-pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
-    config
-        .saved_positions
-        .iter()
-        .map(|temp_conf_elem| {
-            // Assign values so that they are not lost - TODO: figure out why the fuck does that even happen
-            let name = &temp_conf_elem.name;
-            let value = &temp_conf_elem.value;
-            let conf_item_title = name.as_str().clone();
-            let position_elem = CustomMenuItem::new(conf_item_title, conf_item_title);
-            MenuConfigItem {
-                position_elem: position_elem.clone(),
-                name: name.clone(),
-                value: value.clone(),
-                conf_item_title: conf_item_title.clone().to_owned(),
-            }
-        })
-        .collect::<Vec<MenuConfigItem>>()
-}
+// pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
+//     config
+//         .saved_positions
+//         .iter()
+//         .map(|temp_conf_elem| {
+//             // Assign values so that they are not lost - TODO: figure out why the fuck does that even happen
+//             let name = &temp_conf_elem.name;
+//             let value = &temp_conf_elem.value;
+//             let conf_item_title = name.as_str().clone();
+//             let position_elem = MenuItemBuilder::new(conf_item_title);
+//             MenuConfigItem {
+//                 position_elem: position_elem.clone(),
+//                 name: name.clone(),
+//                 value: value.clone(),
+//                 conf_item_title: conf_item_title.clone().to_owned(),
+//             }
+//         })
+//         .collect::<Vec<MenuConfigItem>>()
+// }
 
-/**
-Utility function returning the tray menu instance, based on the provided config
-*/
-pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
-    let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
-    let manage_positions_item =
-        CustomMenuItem::new(MANAGE_POSITIONS_ID.to_string(), "Manage positions");
-    let position_menu_items = get_menu_items_from_config(&config);
-    // The element that opens up on hover
+// /**
+// Utility function returning the tray menu instance, based on the provided config
+// */
+// pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
+//     let add_position_item = MenuItemBuilder::new(ADD_POSITION_ID.to_string(), "Add a new position");
+//     let manage_positions_item =
+//         MenuItemBuilder::new(MANAGE_POSITIONS_ID.to_string(), "Manage positions");
+//     let position_menu_items = get_menu_items_from_config(&config);
+//     // The element that opens up on hover
 
-    let mut sys_tray_menu = SystemTrayMenu::new()
-        .add_item(add_position_item)
-        .add_item(manage_positions_item)
-        .add_native_item(SystemTrayMenuItem::Separator);
+//     let mut sys_tray_menu = SystemTrayMenu::new()
+//         .add_item(add_position_item)
+//         .add_item(manage_positions_item)
+//         .add_native_item(PredefinedMenuItem::Separator);
 
-    // Populate submenu
-    for item in &position_menu_items {
-        sys_tray_menu = sys_tray_menu.add_item(item.position_elem.clone());
-    }
+//     // Populate submenu
+//     for item in &position_menu_items {
+//         sys_tray_menu = sys_tray_menu.add_item(item.position_elem.clone());
+//     }
 
-    // The element to show in the main_menu
-    let positions_submenu = SystemTraySubmenu::new("Positions", sys_tray_menu);
+//     // The element to show in the main_menu
+//     let positions_submenu = SubmenuBuilder::new("Positions", sys_tray_menu);
 
-    let header_item = CustomMenuItem::new(HEADER_ID.to_string(), "Idasen Controller").disabled();
-    let about_item = CustomMenuItem::new(ABOUT_ID.to_string(), "About/Options");
-    let quit_item = CustomMenuItem::new(QUIT_ID.to_string(), "Quit");
-    let main_menu = SystemTrayMenu::new()
-        .add_item(header_item)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_submenu(positions_submenu)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(about_item)
-        .add_item(quit_item.clone());
+//     let header_item = MenuItemBuilder::new(HEADER_ID.to_string(), "Idasen Controller").disabled();
+//     let about_item = MenuItemBuilder::new(ABOUT_ID.to_string(), "About/Options");
+//     let quit_item = MenuItemBuilder::new(QUIT_ID.to_string(), "Quit");
+//     let main_menu = SystemTrayMenu::new()
+//         .add_item(header_item)
+//         .add_native_item(PredefinedMenuItem::Separator)
+//         .add_submenu(positions_submenu)
+//         .add_native_item(PredefinedMenuItem::Separator)
+//         .add_item(about_item)
+//         .add_item(quit_item.clone());
 
-    main_menu
-}
+//     main_menu
+// }

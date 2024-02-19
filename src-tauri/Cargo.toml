@@ -1,5 +1,5 @@
 [package]
-name = "trayasen"
+name = "Trayasen"
 version = "0.1.0"
 description = "An app to control IKEA Idasen desk"
 authors = ["Szymon Wiszczuk<szymon.wiszczuk@gmail.com>"]
@@ -11,18 +11,23 @@ rust-version = "1.70"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.5.0", features = [] }
+tauri-build = { version = "2.0.0-beta", features = [] }
+
 
 [dependencies]
+[target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
+tauri-plugin-global-shortcut = "2.0.0-beta.0"
+
 serde = "1.0.193"
 serde_derive = "1.0.193"
 serde_json = "1.0.108"
-tauri = { version = "1.5.3", features = ["api-all", "system-tray", "global-shortcut"] }
+tauri = { version = "2.0.0-beta.2", features = ["tray-icon"] }
+tauri-plugin-shell = "2.0.0-beta"
 btleplug = "0.11.3"
 tokio = { version = "1.35.0", features = ["full"] }
 thiserror = "1.0.50"
 uuid = "1.6.1"
-tauri-plugin-autostart = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+tauri-plugin-autostart = "2.0.0-beta"
 window-shadows = "0.2.2"
 
 [features]

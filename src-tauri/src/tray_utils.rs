@@ -7,7 +7,7 @@ pub fn handle_exit_menu_click() {
 }
 
 pub fn handle_about_menu_click(app: &AppHandle) {
-    tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+    tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
         .init_trayasen(
             "Trayasen - About/Options",
             "Error while trying to open about window",
@@ -20,7 +20,7 @@ pub fn handle_about_menu_click(app: &AppHandle) {
 }
 
 pub fn handle_new_position_menu_click(app: &AppHandle) {
-    tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+    tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
         .init_trayasen(
             "Trayasen - Add position",
             "Error while trying to open new postition window",
@@ -33,7 +33,7 @@ pub fn handle_new_position_menu_click(app: &AppHandle) {
 }
 
 pub fn handle_manage_positions_menu_click(app: &AppHandle) {
-    tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+    tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
         .init_trayasen(
             "Trayasen - Manage positions",
             "Error while trying to open manage positions window",

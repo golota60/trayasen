@@ -1,4 +1,4 @@
-import { relaunch } from "@tauri-apps/api/process";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { Link } from "found";
 import { useState } from "react";
 import useSimpleAsync from "use-simple-async";

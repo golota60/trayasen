@@ -16,6 +16,13 @@
 
 <br>
 
+`Trayasen` is also very memory efficient while running in the background, so you don't have to worry about it eating your PC's resources.
+
+
+![image](https://github.com/golota60/trayasen/assets/37072867/1d6a7b72-0d66-4474-b8f8-4dab0dc22792)
+
+
+
 ## Installation
 
 [Here](https://github.com/golota60/trayasen/releases/) you can find all the releases and associated files you should download.

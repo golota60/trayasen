@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { appWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Button } from "./generic/button";
 import { Input } from "./generic/input";
 import { MAX_HEIGHT, MIN_HEIGHT } from "./utils";
@@ -213,7 +213,7 @@ const NewPositionPage = () => {
               } else {
                 // exit cause shits been created
                 console.log("closing...");
-                appWindow.close();
+                getCurrentWindow().close();
               }
             }
           }}

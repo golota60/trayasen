@@ -337,8 +337,8 @@ pub struct PotentialDesk {
 // https://github.com/tauri-apps/tauri/issues/2533 - this has to be a Result
 /// Desk we're connecting to for UI info
 #[tauri::command]
-pub async fn get_available_desks_to_connect() -> Result<Vec<PotentialDesk>, String> {
-    let config = config_utils::get_or_create_config();
+pub async fn get_available_desks_to_connect(app_handle: tauri::AppHandle) -> Result<Vec<PotentialDesk>, String> {
+    let config = config_utils::get_or_create_config(&app_handle);
     let desk_list = get_list_of_desks(&config.local_name).await;
 
     match desk_list {
@@ -378,7 +378,7 @@ pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPe
     let desk_to_connect = desk_to_connect.perp;
     println!("after desk to connect!");
 
-    config_utils::save_local_name(name);
+    // config_utils::save_local_name(name);
     println!("saved desk!");
     // TODO: try to use the ACTUAL connected bt device, instead of the pre-connected device instance
     // Challenge here is that we cannot operate on `impl ApiPeripheral`, cause it's not sized.

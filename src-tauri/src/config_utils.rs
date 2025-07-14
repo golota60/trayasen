@@ -4,10 +4,8 @@ use std::{
     fs::{self, read_to_string, remove_file, OpenOptions},
     io::Write,
 };
-use tauri::{
-    api::path::data_dir, CustomMenuItem, GlobalShortcutManager, SystemTrayMenu, SystemTrayMenuItem,
-    SystemTraySubmenu,
-};
+use tauri::{Manager, path::BaseDirectory};
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 
@@ -16,6 +14,7 @@ pub const ABOUT_ID: &str = "about/options";
 pub const ADD_POSITION_ID: &str = "add_position";
 pub const HEADER_ID: &str = "idasen_controller";
 pub const MANAGE_POSITIONS_ID: &str = "manage_positions";
+
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Position {
     pub name: String,
@@ -30,27 +29,15 @@ pub struct ConfigData {
     pub saved_positions: Vec<Position>,
 }
 
-fn get_config_path() -> String {
-    let mut dir = data_dir()
-        .expect("Error whiel unwrapping data directory")
-        .to_str()
-        .expect("err")
-        .to_string();
-
-    if dir.ends_with("/") {
-        dir.push_str(CONFIG_FILE_NAME);
-    } else {
-        dir.push_str("/");
-        dir.push_str(CONFIG_FILE_NAME);
-    }
-
-    dir
+fn get_config_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<std::path::PathBuf> {
+    let path = app.path().resolve(CONFIG_FILE_NAME, BaseDirectory::AppData)?;
+    Ok(path)
 }
 
 // TODO: use get_config here? or merge two funcs together?
 // For FIRST loading
-pub fn get_or_create_config() -> ConfigData {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn get_or_create_config<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> ConfigData {
+    let config_path = get_config_path(app).expect("Error getting config path");
 
     println!("Config path: {:?}", config_path);
 
@@ -64,9 +51,11 @@ pub fn get_or_create_config() -> ConfigData {
         // Config does not exist. Create a dummy one.
         // Check for different errors?
         Err(_) => {
+            if let Some(parent) = config_path.parent() {
+                fs::create_dir_all(parent).expect("failed to create config directory");
+            }
             let new_config = ConfigData {
                 local_name: None,
-
                 saved_positions: vec![],
             };
             let stringified_config = to_string::<ConfigData>(&new_config).unwrap();
@@ -75,7 +64,7 @@ pub fn get_or_create_config() -> ConfigData {
                 .write(true)
                 .read(true)
                 .create(true)
-                .open(&config_path.to_string())
+                .open(&config_path)
                 .expect("Error while creating a new config");
 
             conf_file.write_all(&stringified_config.as_bytes()).unwrap();
@@ -88,10 +77,10 @@ pub fn get_or_create_config() -> ConfigData {
 }
 
 // Generally this function should never error, cause all the same operations have been done miliseconds before.
-pub fn save_local_name(new_local_name: String) {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn save_local_name<R: tauri::Runtime>(app: &tauri::AppHandle<R>, new_local_name: String) {
+    let config_path = get_config_path(app).expect("Error getting config path");
     let old_conf_file =
-        read_to_string(&config_path.to_string()).expect("Opening a config to save MAC Address");
+        read_to_string(&config_path).expect("Opening a config to save MAC Address");
     let mut mut_conf_file =
         from_str::<ConfigData>(&old_conf_file).expect("Parsing a config to save MAC Address");
 
@@ -104,8 +93,7 @@ pub fn save_local_name(new_local_name: String) {
 
 #[tauri::command]
 pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigData {
-    let mut shortcut_manager = app_handle.global_shortcut_manager();
-    let mut conf = get_config();
+    let mut conf = get_config(app_handle.clone());
 
     let elem_to_unregister = conf.saved_positions.iter().find(|pos| pos_name == pos.name);
 
@@ -113,7 +101,7 @@ pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigDa
         let shortcut = elem_to_unregister.shortcut.clone();
         if let Some(shortcut) = shortcut {
             if shortcut != "" {
-                _ = shortcut_manager.unregister(shortcut.as_str());
+                _ = app_handle.global_shortcut().unregister(shortcut.as_str());
             }
         }
     }
@@ -125,23 +113,23 @@ pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigDa
         .collect();
     conf.saved_positions = new_conf_positions;
 
-    update_config(&conf);
+    update_config(&app_handle, &conf);
     conf
 }
 
 #[tauri::command]
-pub fn get_config() -> ConfigData {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn get_config(app_handle: tauri::AppHandle) -> ConfigData {
+    let config_path = get_config_path(&app_handle).expect("Error getting config path");
 
-    let old_conf_file = read_to_string(&config_path.to_string()).expect("Opening a config");
+    let old_conf_file = read_to_string(&config_path).expect("Opening a config");
     let stringified_new_config =
         from_str::<ConfigData>(&old_conf_file).expect("Parsing opened config to struct");
 
     stringified_new_config
 }
 
-pub fn update_config(updated_config: &ConfigData) {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn update_config<R: tauri::Runtime>(app: &tauri::AppHandle<R>, updated_config: &ConfigData) {
+    let config_path = get_config_path(app).expect("Error getting config path");
 
     let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
     fs::write(config_path, stringified_new_config)
@@ -149,15 +137,15 @@ pub fn update_config(updated_config: &ConfigData) {
 }
 
 #[tauri::command]
-pub fn remove_config() {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn remove_config(app_handle: tauri::AppHandle) {
+    let config_path = get_config_path(&app_handle).expect("Error getting config path");
 
     let _ = remove_file(config_path);
 }
 
 #[tauri::command]
-pub fn reset_desk() {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn reset_desk(app_handle: tauri::AppHandle) {
+    let config_path = get_config_path(&app_handle).expect("Error getting config path");
 
     let config =
         read_to_string(&config_path).expect("err while reading config while resetting desk");
@@ -174,66 +162,75 @@ pub fn reset_desk() {
         .expect("Saving a config after updating a config");
 }
 
-pub struct MenuConfigItem {
-    pub position_elem: CustomMenuItem,
+pub struct MenuConfigItem<R: tauri::Runtime> {
+    pub position_elem: tauri::menu::MenuItem<R>,
     pub name: String,
     pub value: u16,
     pub conf_item_title: String,
 }
 
-pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
-    config
-        .saved_positions
-        .iter()
-        .map(|temp_conf_elem| {
-            // Assign values so that they are not lost - TODO: figure out why the fuck does that even happen
-            let name = &temp_conf_elem.name;
-            let value = &temp_conf_elem.value;
-            let conf_item_title = name.as_str().clone();
-            let position_elem = CustomMenuItem::new(conf_item_title, conf_item_title);
-            MenuConfigItem {
-                position_elem: position_elem.clone(),
-                name: name.clone(),
-                value: value.clone(),
-                conf_item_title: conf_item_title.clone().to_owned(),
-            }
-        })
-        .collect::<Vec<MenuConfigItem>>()
+pub fn get_menu_items_from_config<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    config: &ConfigData,
+) -> tauri::Result<Vec<MenuConfigItem<R>>> {
+    let mut items = Vec::new();
+    for temp_conf_elem in &config.saved_positions {
+        let name = &temp_conf_elem.name;
+        let conf_item_title = name.as_str();
+        let position_elem = tauri::menu::MenuItem::with_id(app, conf_item_title, conf_item_title, true, None::<&str>)?;
+        items.push(MenuConfigItem {
+            position_elem,
+            name: name.clone(),
+            value: temp_conf_elem.value,
+            conf_item_title: conf_item_title.to_string(),
+        });
+    }
+    Ok(items)
 }
 
 /**
 Utility function returning the tray menu instance, based on the provided config
 */
-pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
-    let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
-    let manage_positions_item =
-        CustomMenuItem::new(MANAGE_POSITIONS_ID.to_string(), "Manage positions");
-    let position_menu_items = get_menu_items_from_config(&config);
-    // The element that opens up on hover
+pub fn create_main_tray_menu<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    config: &ConfigData,
+) -> tauri::Result<tauri::menu::Menu<R>> {
+    let add_position_item = tauri::menu::MenuItem::with_id(
+        app,
+        ADD_POSITION_ID,
+        "Add a new position",
+        true,
+        None::<&str>,
+    )?;
+    let manage_positions_item = tauri::menu::MenuItem::with_id(
+        app,
+        MANAGE_POSITIONS_ID,
+        "Manage positions",
+        true,
+        None::<&str>,
+    )?;
+    
+    let position_menu_items = get_menu_items_from_config(app, config)?;
+    let position_menu_refs: Vec<&dyn tauri::menu::IsMenuItem<R>> = position_menu_items.iter().map(|item| &item.position_elem as &dyn tauri::menu::IsMenuItem<R>).collect();
+    let positions_submenu = tauri::menu::Submenu::with_id_and_items(app, "positions", "Positions", true, &position_menu_refs)?;
 
-    let mut sys_tray_menu = SystemTrayMenu::new()
-        .add_item(add_position_item)
-        .add_item(manage_positions_item)
-        .add_native_item(SystemTrayMenuItem::Separator);
+    let header_item = tauri::menu::MenuItem::with_id(app, HEADER_ID, "Idasen Controller", false, None::<&str>)?;
+    let about_item = tauri::menu::MenuItem::with_id(app, ABOUT_ID, "About/Options", true, None::<&str>)?;
+    let quit_item = tauri::menu::MenuItem::with_id(app, QUIT_ID, "Quit", true, None::<&str>)?;
 
-    // Populate submenu
-    for item in &position_menu_items {
-        sys_tray_menu = sys_tray_menu.add_item(item.position_elem.clone());
-    }
+    let separator = tauri::menu::PredefinedMenuItem::separator(app)?;
+    let main_menu_items: Vec<&dyn tauri::menu::IsMenuItem<R>> = vec![
+        &add_position_item,
+        &manage_positions_item,
+        &separator,
+        &positions_submenu,
+        &separator,
+        &header_item,
+        &separator,
+        &about_item,
+        &quit_item,
+    ];
+    let main_menu = tauri::menu::Menu::with_items(app, &main_menu_items)?;
 
-    // The element to show in the main_menu
-    let positions_submenu = SystemTraySubmenu::new("Positions", sys_tray_menu);
-
-    let header_item = CustomMenuItem::new(HEADER_ID.to_string(), "Idasen Controller").disabled();
-    let about_item = CustomMenuItem::new(ABOUT_ID.to_string(), "About/Options");
-    let quit_item = CustomMenuItem::new(QUIT_ID.to_string(), "Quit");
-    let main_menu = SystemTrayMenu::new()
-        .add_item(header_item)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_submenu(positions_submenu)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(about_item)
-        .add_item(quit_item.clone());
-
-    main_menu
+    Ok(main_menu)
 }

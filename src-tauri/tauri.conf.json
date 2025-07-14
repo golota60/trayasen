@@ -1,65 +1,49 @@
 {
+  "productName": "Trayasen",
+  "version": "0.1.0",
+  "identifier": "szywis.Trayasen-v0.1.0",
   "build": {
     "beforeDevCommand": "yarn dev",
-    "beforeBuildCommand": "yarn build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist"
+    "beforeBuildCommand": "yarn build"
   },
-  "package": {
-    "productName": "Trayasen",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": true,
-      "window": {
-        "close": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
-      "deb": {
-        "depends": []
-      },
-      "externalBin": [],
-      "icon": [
-        "icons/carrot.png",
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "identifier": "szywis.Trayasen-v0.1.0",
-      "longDescription": "",
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      }
-    },
+  "app": {
     "security": {
       "csp": null
     },
-    "updater": {
-      "active": false
-    },
     "windows": [],
-    "systemTray": {
+    "trayIcon": {
       "iconPath": "icons/carrot.png",
       "iconAsTemplate": true
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "copyright": "",
+    "externalBin": [],
+    "icon": [
+      "icons/carrot.png",
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "longDescription": "",
+    "shortDescription": "",
+    "macOS": {
+      "entitlements": null,
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "resources": []
   }
 }

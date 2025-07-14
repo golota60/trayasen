@@ -2,7 +2,7 @@
  * Functions defined in rust
  */
 
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/core";
 
 export const connectToDesk = async (name: string) => {
   return await invoke("connect_to_desk_by_name", { name });

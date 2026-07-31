@@ -181,6 +181,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         // Pass the desk instance to tauri to manage
         .manage(TauriSharedDesk(Mutex::new(Err(BtError::NotInitiated))))
         .setup(|app| {

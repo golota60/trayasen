@@ -185,8 +185,23 @@ The incompatible `window-shadows 0.2.2` dependency (which uses raw-window-handle
 - The internal About/Options tray menu ID is normalized from the source's legacy `about/options` value to the migration contract's `about` value. The menu event handler uses the same ID, so no user-visible behavior change is expected.
 - Windows custom-decoration shadows now use Tauri v2's built-in shadow implementation rather than `window-shadows`. Tauri documents that an undecorated window with shadows has a 1px white border and, on Windows 11, rounded corners; exact rendering can therefore differ from the v1 dependency.
 
+## Frontend API and Plugin Migration
+
+The frontend now imports command invocation from `@tauri-apps/api/core`, obtains the active window with `getCurrentWindow`, and uses the v2 process and autostart plugin packages. Existing `rustUtils.ts` wrapper names, command names, and command argument objects are unchanged. The Rust process plugin is registered so the existing reset/relaunch flows can call the v2 plugin at runtime.
+
+The existing default capability already grants the narrowly required window close/minimize/toggle-maximize, process restart, and autostart enable/disable/status permissions, so this task did not broaden it.
+
+Validation completed on macOS:
+
+- `npm run build`: passed with TypeScript 5.1.6 and Vite 8.2.0.
+- `npm run lint`: passed.
+- `source "$HOME/.cargo/env" && cd src-tauri && cargo check`: passed with the pre-existing dead-code warning in `loose_idasen.rs`.
+- A bounded `npm run tauri:dev` run compiled and launched `target/debug/trayasen`, rendered the setup path, and discovered nearby Bluetooth devices. The process group was then terminated deliberately; port 1420 had no remaining listener.
+
+The bounded launch confirms macOS compilation, startup, frontend command invocation, and Bluetooth discovery. It did not manually exercise every close/minimize/maximize button, change the OS autostart state, trigger relaunch, connect to a desk, or move physical hardware. Windows and Linux runtime behavior remain unverified.
+
 ## Platform Verification Status
 
-- macOS: not yet verified on Tauri v2
+- macOS: Tauri v2 dev build launched to setup and Bluetooth discovery; individual controls and physical desk movement were not manually exercised
 - Windows: not yet verified on Tauri v2
 - Linux: not yet verified on Tauri v2

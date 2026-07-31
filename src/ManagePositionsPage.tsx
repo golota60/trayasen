@@ -1,9 +1,11 @@
 import useSimpleAsync from "use-simple-async";
-import { appWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Link } from "found";
 import { Button } from "./generic/button";
 import removeIcon from "./assets/cross.svg";
 import { getPositions, removePosition } from "./rustUtils";
+
+const appWindow = getCurrentWindow();
 
 const ManagePositionsPage = () => {
   const [data, { retry }] = useSimpleAsync(getPositions);

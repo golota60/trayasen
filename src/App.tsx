@@ -1,5 +1,5 @@
 import { RouteConfig, createBrowserRouter } from "found";
-import { relaunch } from "@tauri-apps/api/process";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { useState } from "react";
 import AboutPage from "./AboutPage";
 import NewPositionPage from "./NewPositionPage";

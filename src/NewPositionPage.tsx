@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { appWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Button } from "./generic/button";
 import { Input } from "./generic/input";
 import { MAX_HEIGHT, MIN_HEIGHT } from "./utils";
 import { createNewElem } from "./rustUtils";
 import { Label } from "./generic/label";
+
+const appWindow = getCurrentWindow();
 
 // Maps browser keys into accelerator keys
 const modifierMap = new Map<string, string>([

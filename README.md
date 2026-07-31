@@ -126,14 +126,25 @@ If you cannot register a shortcut you want, please advise the comments above. Yo
 
 ## Self-compiling
 
-If there's no build for your particular machine, feel free to clone the repo and self-compile according to tauri docs
-https://tauri.app/v1/guides/building/
+If there's no build for your particular machine, clone the repo and follow the [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/), then run:
+
+```bash
+npm ci
+npm run tauri:build
+```
 
 ## Developing
 
-Prerequisites are [Node.js](https://nodejs.org/) `^20.19.0 || >=22.12.0`, npm, and [Rust](https://www.rust-lang.org/tools/install) 1.88 or newer. The Rust minimum matches the dependencies currently pinned in `src-tauri/Cargo.lock`.
+Prerequisites are [Node.js](https://nodejs.org/) in the exact supported range `^20.19.0 || >=22.12.0`, npm, and [Rust](https://www.rust-lang.org/tools/install) 1.88 or newer. Node 20 releases before 20.19.0 and Node 21 are not supported. The Rust minimum matches the dependencies currently pinned in `src-tauri/Cargo.lock`.
 
-To run the app in a development environment, clone the repo, run `npm ci` in the root to install the locked JS dependencies, and then run `npm run tauri:dev`. The app might take a while to build for the first time.
+To run the app in a development environment, clone the repo and run:
+
+```bash
+npm ci
+npm run tauri:dev
+```
+
+The app might take a while to build for the first time.
 
 Frontend is using [shadcn/ui](https://ui.shadcn.com/) for styling 
 

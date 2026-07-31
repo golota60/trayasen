@@ -16,20 +16,20 @@ jobs:
           name: Lint JS code
   build-tauri:
     docker:
-      - image: cimg/rust:1.74.1-node
+      - image: cimg/rust:1.88.0-node
     steps:
       - checkout
       - node/install:
           node-version: "20.19.0"
       - node/install-packages:
           pkg-manager: npm
-      - run: sudo apt-get update -y
-      - run: sudo apt-get install libglib2.0-dev
-      - run: sudo apt-get install libgtk-3-dev
-      - run: sudo apt-get install libsoup2.4-dev
-      - run: sudo apt-get install libjavascriptcoregtk-4.0-dev
-      - run: sudo apt-get install webkit2gtk-4.0-dev
-      - run: sudo apt-get install libappindicator3-1
+      - run:
+          name: Install Tauri v2 Linux dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - run: npm run build
+      - run: npm run tauri:test
       - run: npm run tauri:build
 workflows:
   build-all:

@@ -256,24 +256,28 @@ The review inventory search found current v2 imports in `src/*.tsx` and historic
 
 ### Bounded macOS smoke check
 
-The packaged app executable was launched for eight seconds with an isolated temporary `HOME` and pre-created `Library/Application Support`, then terminated with `SIGTERM`. It remained alive for the full interval, created `idasen-tray-config.json` containing `{"local_name":null,"saved_positions":[]}`, loaded the no-desk setup state, and returned a nearby Bluetooth-device list that included `Desk 8511`. The temporary home and config were removed afterward. This check did not modify the user's real config or autostart state and did not connect to or move a desk.
+The packaged app executable was launched directly for 12 seconds with an isolated temporary `HOME`, `TMPDIR`, and pre-created `Library/Application Support`, then terminated with `SIGTERM`. At five seconds it was still alive and macOS Launch Services identified the process as `Trayasen` with bundle identifier `szywis.Trayasen-v0.1.0`. Core Graphics reported three on-screen app-owned surfaces: two 34-pixel-wide layer-25 menu-bar surfaces and one 1280×720 layer-5 application window. The latter and the logs provide non-interactive evidence that the no-config setup window opened; the menu-bar surfaces provide non-interactive evidence that the tray item was created.
 
-An initial harness attempt omitted the temporary `Library/Application Support` parent directory and exited with code 134 at `Error while creating a new config: Os { code: 2, kind: NotFound, message: "No such file or directory" }`. The corrected isolated launch created the normal macOS data directory before starting and passed as described above. Normal macOS user homes already contain this directory.
+The launch created only the isolated `idasen-tray-config.json` containing `{"local_name":null,"saved_positions":[]}`, logged the isolated config path and no-desk state, and completed Bluetooth discovery. It remained alive for the full interval, exited after the deliberate signal, and left no app process. SHA-256 snapshots taken before and after the run confirmed that the real config file and the contents of the real `~/Library/LaunchAgents` directory did not change. No desk connection or movement was requested.
 
-| Smoke item | Status | Evidence / limitation |
-| --- | --- | --- |
-| App process launches and stays running | verified (bounded automation) | Packaged executable remained alive for eight seconds before deliberate termination. |
-| Tray icon appears | not verified | No visual UI interaction was performed. |
-| Setup window opens with no desk config | not verified visually | Isolated config and logs prove the no-desk setup backend path and Bluetooth discovery ran, but the window was not manually inspected. |
-| About/Options opens from tray | not verified | No tray UI interaction was performed. |
-| Autostart reads/writes state | not verified | OS autostart state was deliberately not read or mutated. |
-| Reset removes config and relaunches/prompts | not verified | The reset UI and relaunch were deliberately not triggered. |
-| Quit exits from tray | not verified | The tray action was not clicked; the bounded process was terminated by the harness. |
-| Connect/read/save/move/remove with a physical desk | not verified | No desk connection or physical movement was attempted. |
-| Config path compatibility | verified (automated) | Unit test passed and isolated launch used `$HOME/Library/Application Support/idasen-tray-config.json`. |
+A window-only `screencapture` was attempted against the Core Graphics ID for the 1280×720 setup window, but macOS returned `could not create image from window`; therefore no screenshot is claimed. A read-only accessibility query through System Events also timed out under the non-interactive runner and was terminated, so it was not used to click or inspect tray menu items. An earlier harness attempt that omitted the isolated `Library/Application Support` parent exited with code 134; normal macOS user homes already contain that parent, and corrected isolated launches passed.
+
+| # | Smoke item | Status classification | Evidence / limitation | Precise follow-up |
+| --- | --- | --- | --- | --- |
+| 1 | App launches | **verified** | Packaged process was alive at 5 and 12 seconds, registered with Launch Services, then exited after deliberate `SIGTERM`. | Reconfirm by launching the release candidate normally on the target macOS release. |
+| 2 | Tray icon appears | **verified (non-interactive observation)** | Core Graphics reported two app-owned 34-pixel-wide layer-25 surfaces at menu-bar coordinates. No screenshot was available. | Visually confirm the carrot icon on each connected display during the interactive pass. |
+| 3 | Setup window opens when no desk config exists | **verified (non-interactive observation)** | Isolated no-desk config, setup/discovery logs, and an on-screen app-owned 1280×720 layer-5 window were observed. | Visually confirm setup content and controls in a disposable macOS account or with an isolated config. |
+| 4 | About/Options opens from tray | **unavailable due to lack of interactive GUI access** | The accessibility query timed out and no tray item was clicked. | In an interactive session, click `About/Options` and confirm the page renders without console/runtime errors. |
+| 5 | Autostart toggle reads and writes state without throwing | **intentionally not run for safety** | The real `~/Library/LaunchAgents` snapshot was unchanged; this pass was forbidden from mutating real autostart state. | In a disposable macOS account or VM, record the initial state, open About/Options, toggle on and off, confirm state after each change, and restore the initial state. |
+| 6 | Reset config removes config and relaunches or prompts | **unavailable due to lack of interactive GUI access** | No reset control was clicked; the real config was protected and remained byte-for-byte unchanged. | With an isolated/disposable config, click reset, confirm that file removal and relaunch/prompt behavior match the UI, then discard the profile. |
+| 7 | Quit exits the app from tray | **unavailable due to lack of interactive GUI access** | The tray Quit item was not clicked; the harness used `SIGTERM`, which verifies cleanup only, not menu dispatch. | Click `Quit` from the tray in an interactive session and confirm the process disappears without automatic restart. |
+| 8 | Connect/read/save/move/remove with a physical desk | **intentionally not run for safety** | Discovery completed, but no device was connected and no physical desk was moved or configuration changed. | With the desk area clear and an operator present, connect, read height, add a temporary position, move to it, remove it, and restore the starting height. |
+| 9 | Config remains at the documented platform path | **verified** | The compatibility unit test passed and the isolated launch used `$HOME/Library/Application Support/idasen-tray-config.json`; the real file hash was unchanged. | On an upgrade test profile, confirm an existing config is discovered without migration or duplication. |
+
+**Verification conclusion:** Task 6 automated verification and bounded launch observation are complete, but Task 6 end-to-end behavior verification is **not complete**. Checklist items 4–8 still require the precise interactive/safety-controlled follow-ups above; this migration must not be represented as fully smoke-tested until those results are recorded.
 
 ## Platform Verification Status
 
-- macOS: frontend/Rust builds, Rust tests, `.app` packaging, isolated launch, setup-state config creation, and Bluetooth discovery verified; DMG styling blocked by Finder AppleEvent timeout; visual tray/window controls, autostart mutation, relaunch, quit action, and desk operations not verified.
+- macOS: frontend/Rust builds, Rust tests, `.app` packaging, isolated launch, tray-surface creation, setup-window creation, config creation, and Bluetooth discovery verified; DMG styling remains blocked by Finder AppleEvent timeout. About/Options, autostart write/readback, reset/relaunch, tray Quit, and physical-desk operations remain unverified.
 - Windows: not verified on Tauri v2.
 - Linux: not verified on Tauri v2; CI prerequisites were updated but have not run in this local macOS environment.

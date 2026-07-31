@@ -131,7 +131,7 @@ https://tauri.app/v1/guides/building/
 
 ## Developing
 
-Prerequisites are [Node.js 20.19 or newer](https://nodejs.org/) (Node 22 requires 22.12 or newer), npm, and Rust.
+Prerequisites are [Node.js](https://nodejs.org/) `^20.19.0 || >=22.12.0`, npm, and [Rust](https://www.rust-lang.org/tools/install) 1.88 or newer. The Rust minimum matches the dependencies currently pinned in `src-tauri/Cargo.lock`.
 
 To run the app in a development environment, clone the repo, run `npm ci` in the root to install the locked JS dependencies, and then run `npm run tauri:dev`. The app might take a while to build for the first time.
 

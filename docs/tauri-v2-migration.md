@@ -64,6 +64,40 @@ $ cd src-tauri && cargo test
 /bin/bash: cargo: command not found
 ```
 
+## Package Manager
+
+The project is standardized on npm for the Tauri v2 migration. `package-lock.json` is the sole lockfile and `yarn.lock` has been removed. Use `npm install`, `npm run build`, and the existing npm scripts for dependency and frontend tasks.
+
+`npm install` and a clean `npm ci` completed without peer dependency errors. npm reported 20 high-severity audit findings in the existing dependency tree; addressing unrelated dependency upgrades is outside this task.
+
+## Frontend Tooling Versions
+
+The declared current compatible versions selected for the modern frontend toolchain are:
+
+- `@vitejs/plugin-react ^6.0.5`
+- `vite ^8.2.0`
+- `typescript ^7.0.2`
+- `@types/node ^26.1.2`
+- `@types/react ^18.3.31`
+- `@types/react-dom ^18.3.7`
+
+React remains on major version 18. The npm lockfile resolves `react` and `react-dom` to `18.3.1`.
+
+TypeScript 7 no longer accepts `esModuleInterop: false` or the legacy `moduleResolution: Node` (`node10`) mode. The project and Vite configuration TypeScript projects now use `moduleResolution: Bundler`, and the removed `esModuleInterop: false` setting is omitted.
+
+## Frontend API Migration Errors
+
+After the tooling configuration update, `npm run build` reaches application type-checking and fails only on Tauri v1 API imports that are scheduled for the frontend API migration:
+
+```text
+src/ManagePositionsPage.tsx(2,10): error TS2724: '"@tauri-apps/api/window"' has no exported member named 'appWindow'. Did you mean 'Window'?
+src/NewPositionPage.tsx(2,10): error TS2724: '"@tauri-apps/api/window"' has no exported member named 'appWindow'. Did you mean 'Window'?
+src/main.tsx(3,10): error TS2724: '"@tauri-apps/api/window"' has no exported member named 'appWindow'. Did you mean 'Window'?
+src/rustUtils.ts(5,10): error TS2305: Module '"@tauri-apps/api"' has no exported member 'invoke'.
+```
+
+No Vite, TypeScript configuration, package resolution, or peer dependency error remains in this build attempt.
+
 ## Reference Scaffold
 
 Fresh scaffold command:

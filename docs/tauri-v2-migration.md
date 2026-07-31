@@ -66,7 +66,7 @@ $ cd src-tauri && cargo test
 
 ## Package Manager
 
-The project is standardized on npm for the Tauri v2 migration. `package-lock.json` is the sole lockfile and `yarn.lock` has been removed. Use `npm install`, `npm run build`, and the existing npm scripts for dependency and frontend tasks.
+The project is standardized on npm for the Tauri v2 migration. `package-lock.json` is the sole lockfile and `yarn.lock` has been removed. Use `npm ci`, `npm run build`, and the existing npm scripts for dependency and frontend tasks. CircleCI, the GitHub release workflow, Tauri frontend hooks, and the README all use npm and therefore consume the committed lockfile.
 
 `npm install` and a clean `npm ci` completed without peer dependency errors. npm reported 20 high-severity audit findings in the existing dependency tree; addressing unrelated dependency upgrades is outside this task.
 
@@ -76,14 +76,20 @@ The declared current compatible versions selected for the modern frontend toolch
 
 - `@vitejs/plugin-react ^6.0.5`
 - `vite ^8.2.0`
-- `typescript ^7.0.2`
+- `typescript 5.1.6`
 - `@types/node ^26.1.2`
 - `@types/react ^18.3.31`
 - `@types/react-dom ^18.3.7`
 
 React remains on major version 18. The npm lockfile resolves `react` and `react-dom` to `18.3.1`.
 
-TypeScript 7 no longer accepts `esModuleInterop: false` or the legacy `moduleResolution: Node` (`node10`) mode. The project and Vite configuration TypeScript projects now use `moduleResolution: Bundler`, and the removed `esModuleInterop: false` setting is omitted.
+TypeScript is pinned to 5.1.6 because the retained TypeScript-ESLint v5 stack supports TypeScript `>=3.3.1 <5.2.0`; pinning prevents npm from resolving a later incompatible TypeScript release. TypeScript 5.1 supports the `moduleResolution: Bundler` mode used by the project and Vite configuration projects. The obsolete `esModuleInterop: false` setting remains omitted.
+
+The repository ESLint configuration is marked as a root config so lint resolution is isolated from any parent checkout. `npm run lint` completes successfully; the single legacy autostart import is explicitly deferred to the frontend API migration task rather than reintroducing its removed v1 dependency.
+
+## Node.js Runtime
+
+Vite 8 and `@vitejs/plugin-react` 6 require Node `^20.19.0 || >=22.12.0`. The same supported range is declared in `package.json`; active CircleCI and GitHub release jobs use Node 20.19.0. The README documents Node 20.19 as the minimum (and 22.12 as the minimum on Node 22).
 
 ## Frontend API Migration Errors
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { relaunch } from "@tauri-apps/api/process";
 import useSimpleAsync from "use-simple-async";
+// eslint-disable-next-line import/no-extraneous-dependencies -- Migrated in the frontend API task.
 import { enable, isEnabled, disable } from "tauri-plugin-autostart-api";
 import { HelpCircle } from "lucide-react";
 import { removeConfig } from "./rustUtils";

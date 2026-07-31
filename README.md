@@ -131,9 +131,9 @@ https://tauri.app/v1/guides/building/
 
 ## Developing
 
-Prerequisites are `node`, `yarn` and `rust`.
+Prerequisites are [Node.js 20.19 or newer](https://nodejs.org/) (Node 22 requires 22.12 or newer), npm, and Rust.
 
-To run the app in developer environment, clone the repo, run `yarn` in the root(to install JS dependencies), and then run `yarn tauri dev`. The app might take a while to build for the first time.
+To run the app in a development environment, clone the repo, run `npm ci` in the root to install the locked JS dependencies, and then run `npm run tauri:dev`. The app might take a while to build for the first time.
 
 Frontend is using [shadcn/ui](https://ui.shadcn.com/) for styling 
 

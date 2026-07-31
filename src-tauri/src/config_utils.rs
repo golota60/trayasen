@@ -3,19 +3,22 @@ use serde_json::{from_str, to_string};
 use std::{
     fs::{self, read_to_string, remove_file, OpenOptions},
     io::Write,
+    path::PathBuf,
 };
 use tauri::{
-    api::path::data_dir, CustomMenuItem, GlobalShortcutManager, SystemTrayMenu, SystemTrayMenuItem,
-    SystemTraySubmenu,
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
+    AppHandle, Manager,
 };
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
 
 pub const QUIT_ID: &str = "quit";
-pub const ABOUT_ID: &str = "about/options";
+pub const ABOUT_ID: &str = "about";
 pub const ADD_POSITION_ID: &str = "add_position";
 pub const HEADER_ID: &str = "idasen_controller";
 pub const MANAGE_POSITIONS_ID: &str = "manage_positions";
+
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Position {
     pub name: String,
@@ -30,43 +33,34 @@ pub struct ConfigData {
     pub saved_positions: Vec<Position>,
 }
 
-fn get_config_path() -> String {
-    let mut dir = data_dir()
-        .expect("Error whiel unwrapping data directory")
-        .to_str()
-        .expect("err")
-        .to_string();
+fn config_path_in(data_dir: PathBuf) -> PathBuf {
+    data_dir.join(CONFIG_FILE_NAME)
+}
 
-    if dir.ends_with("/") {
-        dir.push_str(CONFIG_FILE_NAME);
-    } else {
-        dir.push_str("/");
-        dir.push_str(CONFIG_FILE_NAME);
-    }
-
-    dir
+fn get_config_path(app_handle: &AppHandle) -> PathBuf {
+    config_path_in(
+        app_handle
+            .path()
+            .data_dir()
+            .expect("Error while unwrapping data directory"),
+    )
 }
 
 // TODO: use get_config here? or merge two funcs together?
 // For FIRST loading
-pub fn get_or_create_config() -> ConfigData {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn get_or_create_config(app_handle: &AppHandle) -> ConfigData {
+    let config_path = get_config_path(app_handle);
 
     println!("Config path: {:?}", config_path);
 
-    let config = match read_to_string(&config_path) {
+    match read_to_string(&config_path) {
         // Config exists
-        Ok(s) => {
-            let config =
-                from_str::<ConfigData>(s.as_str()).expect("Error while parsing config file");
-            config
-        }
+        Ok(s) => from_str::<ConfigData>(s.as_str()).expect("Error while parsing config file"),
         // Config does not exist. Create a dummy one.
         // Check for different errors?
         Err(_) => {
             let new_config = ConfigData {
                 local_name: None,
-
                 saved_positions: vec![],
             };
             let stringified_config = to_string::<ConfigData>(&new_config).unwrap();
@@ -75,27 +69,24 @@ pub fn get_or_create_config() -> ConfigData {
                 .write(true)
                 .read(true)
                 .create(true)
-                .open(&config_path.to_string())
+                .open(&config_path)
                 .expect("Error while creating a new config");
 
-            conf_file.write_all(&stringified_config.as_bytes()).unwrap();
+            conf_file.write_all(stringified_config.as_bytes()).unwrap();
 
             new_config
         }
-    };
-
-    config
+    }
 }
 
 // Generally this function should never error, cause all the same operations have been done miliseconds before.
-pub fn save_local_name(new_local_name: String) {
-    let config_path = get_config_path().trim_end().to_string();
-    let old_conf_file =
-        read_to_string(&config_path.to_string()).expect("Opening a config to save MAC Address");
+pub fn save_local_name(app_handle: &AppHandle, new_local_name: String) {
+    let config_path = get_config_path(app_handle);
+    let old_conf_file = read_to_string(&config_path).expect("Opening a config to save MAC Address");
     let mut mut_conf_file =
         from_str::<ConfigData>(&old_conf_file).expect("Parsing a config to save MAC Address");
 
-    mut_conf_file.local_name = Some(new_local_name.to_string());
+    mut_conf_file.local_name = Some(new_local_name);
 
     let stringified_new_config = to_string::<ConfigData>(&mut_conf_file).unwrap();
     fs::write(config_path, stringified_new_config)
@@ -104,60 +95,54 @@ pub fn save_local_name(new_local_name: String) {
 
 #[tauri::command]
 pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigData {
-    let mut shortcut_manager = app_handle.global_shortcut_manager();
-    let mut conf = get_config();
+    let mut conf = get_config(app_handle.clone());
 
     let elem_to_unregister = conf.saved_positions.iter().find(|pos| pos_name == pos.name);
 
     if let Some(elem_to_unregister) = elem_to_unregister {
-        let shortcut = elem_to_unregister.shortcut.clone();
-        if let Some(shortcut) = shortcut {
-            if shortcut != "" {
-                _ = shortcut_manager.unregister(shortcut.as_str());
+        if let Some(shortcut) = &elem_to_unregister.shortcut {
+            if !shortcut.is_empty() {
+                if let Err(error) = app_handle.global_shortcut().unregister(shortcut.as_str()) {
+                    eprintln!(
+                        "Failed to unregister global shortcut `{shortcut}` for position `{pos_name}`: {error}"
+                    );
+                }
             }
         }
     }
 
-    let new_conf_positions = conf
-        .saved_positions
-        .into_iter()
-        .filter(|pos| pos.name != pos_name)
-        .collect();
-    conf.saved_positions = new_conf_positions;
+    conf.saved_positions.retain(|pos| pos.name != pos_name);
 
-    update_config(&conf);
+    update_config(&app_handle, &conf);
     conf
 }
 
 #[tauri::command]
-pub fn get_config() -> ConfigData {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn get_config(app_handle: tauri::AppHandle) -> ConfigData {
+    let config_path = get_config_path(&app_handle);
 
-    let old_conf_file = read_to_string(&config_path.to_string()).expect("Opening a config");
-    let stringified_new_config =
-        from_str::<ConfigData>(&old_conf_file).expect("Parsing opened config to struct");
-
-    stringified_new_config
+    let old_conf_file = read_to_string(&config_path).expect("Opening a config");
+    from_str::<ConfigData>(&old_conf_file).expect("Parsing opened config to struct")
 }
 
-pub fn update_config(updated_config: &ConfigData) {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn update_config(app_handle: &AppHandle, updated_config: &ConfigData) {
+    let config_path = get_config_path(app_handle);
 
-    let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
+    let stringified_new_config = to_string::<ConfigData>(updated_config).unwrap();
     fs::write(config_path, stringified_new_config)
         .expect("Saving a config after updating a config");
 }
 
 #[tauri::command]
-pub fn remove_config() {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn remove_config(app_handle: tauri::AppHandle) {
+    let config_path = get_config_path(&app_handle);
 
     let _ = remove_file(config_path);
 }
 
 #[tauri::command]
-pub fn reset_desk() {
-    let config_path = get_config_path().trim_end().to_string();
+pub fn reset_desk(app_handle: tauri::AppHandle) {
+    let config_path = get_config_path(&app_handle);
 
     let config =
         read_to_string(&config_path).expect("err while reading config while resetting desk");
@@ -175,65 +160,98 @@ pub fn reset_desk() {
 }
 
 pub struct MenuConfigItem {
-    pub position_elem: CustomMenuItem,
-    pub name: String,
-    pub value: u16,
-    pub conf_item_title: String,
+    pub position_elem: MenuItem<tauri::Wry>,
 }
 
-pub fn get_menu_items_from_config(config: &ConfigData) -> Vec<MenuConfigItem> {
+pub fn get_menu_items_from_config(
+    app_handle: &AppHandle,
+    config: &ConfigData,
+) -> tauri::Result<Vec<MenuConfigItem>> {
     config
         .saved_positions
         .iter()
-        .map(|temp_conf_elem| {
-            // Assign values so that they are not lost - TODO: figure out why the fuck does that even happen
-            let name = &temp_conf_elem.name;
-            let value = &temp_conf_elem.value;
-            let conf_item_title = name.as_str().clone();
-            let position_elem = CustomMenuItem::new(conf_item_title, conf_item_title);
-            MenuConfigItem {
-                position_elem: position_elem.clone(),
-                name: name.clone(),
-                value: value.clone(),
-                conf_item_title: conf_item_title.clone().to_owned(),
-            }
+        .map(|position| {
+            let position_elem = MenuItem::with_id(
+                app_handle,
+                position.name.clone(),
+                &position.name,
+                true,
+                None::<&str>,
+            )?;
+            Ok(MenuConfigItem { position_elem })
         })
-        .collect::<Vec<MenuConfigItem>>()
+        .collect()
 }
 
 /**
 Utility function returning the tray menu instance, based on the provided config
 */
-pub fn create_main_tray_menu(config: &ConfigData) -> SystemTrayMenu {
-    let add_position_item = CustomMenuItem::new(ADD_POSITION_ID.to_string(), "Add a new position");
-    let manage_positions_item =
-        CustomMenuItem::new(MANAGE_POSITIONS_ID.to_string(), "Manage positions");
-    let position_menu_items = get_menu_items_from_config(&config);
-    // The element that opens up on hover
+pub fn create_main_tray_menu(
+    app_handle: &AppHandle,
+    config: &ConfigData,
+) -> tauri::Result<Menu<tauri::Wry>> {
+    let add_position_item = MenuItem::with_id(
+        app_handle,
+        ADD_POSITION_ID,
+        "Add a new position",
+        true,
+        None::<&str>,
+    )?;
+    let manage_positions_item = MenuItem::with_id(
+        app_handle,
+        MANAGE_POSITIONS_ID,
+        "Manage positions",
+        true,
+        None::<&str>,
+    )?;
+    let position_menu_items = get_menu_items_from_config(app_handle, config)?;
 
-    let mut sys_tray_menu = SystemTrayMenu::new()
-        .add_item(add_position_item)
-        .add_item(manage_positions_item)
-        .add_native_item(SystemTrayMenuItem::Separator);
-
-    // Populate submenu
+    let positions_submenu = Submenu::new(app_handle, "Positions", true)?;
+    positions_submenu.append(&add_position_item)?;
+    positions_submenu.append(&manage_positions_item)?;
+    positions_submenu.append(&PredefinedMenuItem::separator(app_handle)?)?;
     for item in &position_menu_items {
-        sys_tray_menu = sys_tray_menu.add_item(item.position_elem.clone());
+        positions_submenu.append(&item.position_elem)?;
     }
 
-    // The element to show in the main_menu
-    let positions_submenu = SystemTraySubmenu::new("Positions", sys_tray_menu);
+    let header_item = MenuItem::with_id(
+        app_handle,
+        HEADER_ID,
+        "Idasen Controller",
+        false,
+        None::<&str>,
+    )?;
+    let about_item = MenuItem::with_id(app_handle, ABOUT_ID, "About/Options", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app_handle, QUIT_ID, "Quit", true, None::<&str>)?;
 
-    let header_item = CustomMenuItem::new(HEADER_ID.to_string(), "Idasen Controller").disabled();
-    let about_item = CustomMenuItem::new(ABOUT_ID.to_string(), "About/Options");
-    let quit_item = CustomMenuItem::new(QUIT_ID.to_string(), "Quit");
-    let main_menu = SystemTrayMenu::new()
-        .add_item(header_item)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_submenu(positions_submenu)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(about_item)
-        .add_item(quit_item.clone());
+    let main_menu = Menu::new(app_handle)?;
+    main_menu.append(&header_item)?;
+    main_menu.append(&PredefinedMenuItem::separator(app_handle)?)?;
+    main_menu.append(&positions_submenu)?;
+    main_menu.append(&PredefinedMenuItem::separator(app_handle)?)?;
+    main_menu.append(&about_item)?;
+    main_menu.append(&quit_item)?;
 
-    main_menu
+    Ok(main_menu)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_filename_remains_compatible() {
+        assert_eq!(
+            config_path_in(PathBuf::from("data")),
+            PathBuf::from("data").join("idasen-tray-config.json")
+        );
+    }
+
+    #[test]
+    fn tray_action_ids_remain_stable() {
+        assert_eq!(ADD_POSITION_ID, "add_position");
+        assert_eq!(MANAGE_POSITIONS_ID, "manage_positions");
+        assert_eq!(ABOUT_ID, "about");
+        assert_eq!(QUIT_ID, "quit");
+    }
 }

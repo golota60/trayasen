@@ -25,7 +25,6 @@ uuid = "1.6.1"
 tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-process = "2"
-window-shadows = "0.2.2"
 
 [features]
 # by default Tauri runs in production mode

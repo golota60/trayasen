@@ -170,9 +170,20 @@ error[E0432]: unresolved imports `tauri::CustomMenuItem`, `tauri::GlobalShortcut
 
 Cargo subsequently reports the remaining expected v1 API incompatibilities around `WindowUrl`, `global_shortcut_manager`, and `system_tray`. No runtime Rust APIs were changed in this foundation task.
 
+## Rust Runtime Migration
+
+The desktop runtime now uses Tauri v2's `WebviewWindowBuilder`, `menu` and `tray` modules, app path resolver, and the v2 global-shortcut and autostart plugin builders. The config remains at the operating system data directory root with the filename `idasen-tray-config.json`, so existing user data remains discoverable.
+
+Tray actions retain the required IDs `add_position`, `manage_positions`, `about`, and `quit`; saved position names remain the IDs for their movement items. Global shortcut strings are passed through unchanged. Registration and unregistration errors are now written to stderr with the shortcut and position name instead of being silently ignored.
+
+The migration inventory listed `connect_to_config_desk`, but that command does not exist in the pre-migration Rust source, frontend consumers, or repository history. No new command or unapproved behavior was invented. All actual registered commands, including `get_available_desks_to_connect`, remain in `tauri::generate_handler!`.
+
+The incompatible `window-shadows 0.2.2` dependency (which uses raw-window-handle 0.5) was removed. Undecorated Windows windows now request shadows through Tauri v2's built-in `.shadow(true)` window option.
+
 ## Intentional Behavior Changes
 
-None yet.
+- The internal About/Options tray menu ID is normalized from the source's legacy `about/options` value to the migration contract's `about` value. The menu event handler uses the same ID, so no user-visible behavior change is expected.
+- Windows custom-decoration shadows now use Tauri v2's built-in shadow implementation rather than `window-shadows`. Tauri documents that an undecorated window with shadows has a 1px white border and, on Windows 11, rounded corners; exact rendering can therefore differ from the v1 dependency.
 
 ## Platform Verification Status
 

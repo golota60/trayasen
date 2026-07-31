@@ -1,4 +1,4 @@
-use tauri::AppHandle;
+use tauri::{AppHandle, WebviewUrl, WebviewWindowBuilder};
 
 use crate::WindowInitUtils;
 
@@ -7,40 +7,37 @@ pub fn handle_exit_menu_click() {
 }
 
 pub fn handle_about_menu_click(app: &AppHandle) {
-    tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
-        .init_trayasen(
-            "Trayasen - About/Options",
-            "Error while trying to open about window",
-            Some(
-                r#"
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).init_trayasen(
+        "Trayasen - About/Options",
+        "Error while trying to open about window",
+        Some(
+            r#"
     history.replaceState({}, '','/about');
     "#,
-            ),
-        );
+        ),
+    );
 }
 
 pub fn handle_new_position_menu_click(app: &AppHandle) {
-    tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
-        .init_trayasen(
-            "Trayasen - Add position",
-            "Error while trying to open new postition window",
-            Some(
-                r#"
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).init_trayasen(
+        "Trayasen - Add position",
+        "Error while trying to open new postition window",
+        Some(
+            r#"
     history.replaceState({}, '','/new-position');
     "#,
-            ),
-        );
+        ),
+    );
 }
 
 pub fn handle_manage_positions_menu_click(app: &AppHandle) {
-    tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
-        .init_trayasen(
-            "Trayasen - Manage positions",
-            "Error while trying to open manage positions window",
-            Some(
-                r#"
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).init_trayasen(
+        "Trayasen - Manage positions",
+        "Error while trying to open manage positions window",
+        Some(
+            r#"
     history.replaceState({}, '','/manage-positions');
     "#,
-            ),
-        );
+        ),
+    );
 }

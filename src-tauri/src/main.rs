@@ -4,55 +4,90 @@
 )]
 
 use std::sync::Mutex;
-use loose_idasen::BtError;
-use tauri_plugin_autostart::MacosLauncher;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
-use tauri::{GlobalShortcutManager, Window, WindowBuilder};
-use tauri::{async_runtime::block_on, Manager, SystemTray, SystemTrayEvent};
-use window_shadows::set_shadow;
+use loose_idasen::BtError;
+use tauri::{
+    async_runtime::block_on, tray::TrayIconBuilder, AppHandle, Manager, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
+};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
-mod desk_mutex;
 mod config_utils;
+mod desk_mutex;
 mod loose_idasen;
 mod tray_utils;
+
+const MAIN_TRAY_ID: &str = "main-tray";
 
 pub struct TauriSharedDesk(Mutex<Result<PlatformPeripheral, BtError>>);
 
 // Whether a system should have custom decorations or not
 #[tauri::command]
 fn has_custom_decorations() -> bool {
-    if cfg!(windows) {
-        return true;
-    }
-    false
+    cfg!(windows)
 }
 
 pub trait WindowInitUtils {
-    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window;
-} 
+    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> WebviewWindow;
+}
 
-impl WindowInitUtils for WindowBuilder<'_> {
-    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> Window {
-        // We want to replace borders only on windows, as on macOS they are pretty enough, and on Linux it's not supported by `window_shadows`
+impl<'a, M> WindowInitUtils for WebviewWindowBuilder<'a, tauri::Wry, M>
+where
+    M: Manager<tauri::Wry>,
+{
+    fn init_trayasen(self, title: &str, err_msg: &str, init_script: Option<&str>) -> WebviewWindow {
+        // We want to replace borders only on Windows, as on macOS they are pretty enough, and on Linux custom shadows are unsupported.
         let mut window_builder = if has_custom_decorations() {
-            self.inner_size(1280.0, 720.0).title(title).always_on_top(true).decorations(false)
+            self.inner_size(1280.0, 720.0)
+                .title(title)
+                .always_on_top(true)
+                .decorations(false)
+                .shadow(true)
         } else {
-            self.inner_size(1280.0, 720.0).title(title).always_on_top(true)
+            self.inner_size(1280.0, 720.0)
+                .title(title)
+                .always_on_top(true)
         };
 
         if let Some(init_script) = init_script {
             window_builder = window_builder.initialization_script(init_script);
         }
 
-        let window_instance= window_builder.build().expect(err_msg);
-        if has_custom_decorations() {
-            set_shadow(&window_instance, true).unwrap();
-        }
-        window_instance
+        window_builder.build().expect(err_msg)
     }
 }
 
+fn register_position_shortcut(
+    app_handle: &AppHandle,
+    position: &config_utils::Position,
+    desk: PlatformPeripheral,
+) {
+    let Some(shortcut) = position.shortcut.as_deref() else {
+        return;
+    };
+    if shortcut.is_empty() {
+        return;
+    }
+
+    let position_name = position.name.clone();
+    let target = position.value;
+    if let Err(error) =
+        app_handle
+            .global_shortcut()
+            .on_shortcut(shortcut, move |_app_handle, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    block_on(async {
+                        loose_idasen::move_to_target(&desk, target).await.unwrap();
+                    });
+                }
+            })
+    {
+        eprintln!(
+            "Failed to register global shortcut `{shortcut}` for position `{position_name}`: {error}"
+        );
+    }
+}
 
 #[tauri::command]
 fn create_new_elem(
@@ -61,8 +96,7 @@ fn create_new_elem(
     value: u16,
     shortcutvalue: Option<String>,
 ) -> String {
-    let mut config = config_utils::get_config();
-    let mut shortcut_manager = app_handle.global_shortcut_manager();
+    let mut config = config_utils::get_config(app_handle.clone());
 
     println!("shortcut_acc: {:?}", shortcutvalue);
 
@@ -74,26 +108,21 @@ fn create_new_elem(
         }
         None => {
             // No duplicate
-            config.saved_positions.push(config_utils::Position {
+            let position = config_utils::Position {
                 name: name.to_string(),
                 value,
-                shortcut: shortcutvalue.clone(),
-            });
-            config_utils::update_config(&config);
+                shortcut: shortcutvalue,
+            };
+            config.saved_positions.push(position.clone());
+            config_utils::update_config(&app_handle, &config);
 
-            let desk = desk_mutex::get_desk_from_app_state(&app_handle);
-
-            let cloned_desk = desk.clone();
-            if let Some(shortcut_acc) = shortcutvalue {
-                if shortcut_acc != "" {
-                    _ = shortcut_manager.register(shortcut_acc.as_str(), move || {
-                        block_on(async {
-                            loose_idasen::move_to_target(&cloned_desk, value)
-                                .await
-                                .unwrap();
-                        });
-                    });
-                }
+            if position
+                .shortcut
+                .as_deref()
+                .is_some_and(|key| !key.is_empty())
+            {
+                let desk = desk_mutex::get_desk_from_app_state(&app_handle);
+                register_position_shortcut(&app_handle, &position, desk);
             }
 
             "success".to_string()
@@ -107,61 +136,87 @@ async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> 
     println!("connecting to desk with name: {}", name);
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
     println!("with desk!...");
-    let cached_desk = loose_idasen::connect_to_desk_by_name_internal(name).await;
+    let cached_desk = loose_idasen::connect_to_desk_by_name_internal(&app_handle, name).await;
     println!("after cached desk...");
-    if cached_desk.is_err() {
-        println!("in error!...");
-        return Err(cached_desk.unwrap_err().to_string());
-    }
+    let cached_desk = match cached_desk {
+        Ok(desk) => desk,
+        Err(error) => {
+            println!("in error!...");
+            return Err(error.to_string());
+        }
+    };
 
-    println!("cached desk: some:{}, none:{}", cached_desk.is_ok(), cached_desk.is_err());
-    desk_mutex::assign_desk_to_mutex(&instantiated_desk, cached_desk);
+    desk_mutex::assign_desk_to_mutex(&instantiated_desk, Ok(cached_desk));
     println!("Successfuly connected to desk from frontend");
     Ok(())
 }
 
-fn main() {
-    let config = config_utils::get_or_create_config();
-    let initiated_desk = TauriSharedDesk(Mutex::new(Err(BtError::NotInitiated)));
+fn handle_tray_menu_event(app: &AppHandle, id: &str) {
+    match id {
+        config_utils::QUIT_ID => tray_utils::handle_exit_menu_click(),
+        config_utils::ABOUT_ID => tray_utils::handle_about_menu_click(app),
+        config_utils::ADD_POSITION_ID => tray_utils::handle_new_position_menu_click(app),
+        config_utils::MANAGE_POSITIONS_ID => tray_utils::handle_manage_positions_menu_click(app),
+        // If event is not one of predefined, assume a position has been clicked
+        remaining_id => {
+            // Get config one more time, in case there's a new position added since initialization
+            let config = config_utils::get_config(app.clone());
+            let found_elem = config
+                .saved_positions
+                .iter()
+                .find(|pos| pos.name == remaining_id)
+                .expect("Clicked element not found");
+            block_on(async {
+                let desk = desk_mutex::get_desk_from_app_state(app);
 
-    /*
-    If there is a desk name present already, do not bother the end user with windows opening/loading. Just connect to his desk.
-    */
-    let local_name = &config.local_name;
-    block_on(async {
-        if let Some(local_name) = local_name.clone() {
-            let cached_desk = loose_idasen::connect_to_desk_by_name_internal(local_name.clone())
-                .await;
-
-                desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
+                loose_idasen::move_to_target(&desk, found_elem.value)
+                    .await
+                    .unwrap();
+            });
         }
-    });
+    }
+}
 
-    println!("Loaded config: {:?}", config);
-
-    let tray_skeleton = config_utils::create_main_tray_menu(&config);
-    let tray = SystemTray::new().with_menu(tray_skeleton);
-
+fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            None,
-        ))
-        // Pass the tray instance to tauri to manage
-        .system_tray(tray)
+        .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         // Pass the desk instance to tauri to manage
-        .manage(initiated_desk)
-        // Pass the previously instantiates config. We ideally want to read fs only once.
-        .manage(config)
+        .manage(TauriSharedDesk(Mutex::new(Err(BtError::NotInitiated))))
         .setup(|app| {
+            let app_handle = app.handle().clone();
+            let config = config_utils::get_or_create_config(&app_handle);
+
+            /*
+            If there is a desk name present already, do not bother the end user with windows opening/loading. Just connect to his desk.
+            */
+            if let Some(local_name) = config.local_name.clone() {
+                let cached_desk = block_on(
+                    loose_idasen::connect_to_desk_by_name_internal(&app_handle, local_name),
+                );
+                let initiated_desk = app.state::<TauriSharedDesk>();
+                desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
+            }
+
+            println!("Loaded config: {:?}", config);
+
+            let tray_menu = config_utils::create_main_tray_menu(&app_handle, &config)?;
+            let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID).menu(&tray_menu);
+            if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            }
+            tray_builder
+                .on_menu_event(|app, event| handle_tray_menu_event(app, event.id().as_ref()))
+                .build(app)?;
+
+            // Preserve the initial config as managed state for existing setup behavior.
+            app.manage(config.clone());
+
             /*
                 On setup, we only wanna bail early if we're already connected
                 and register all the shortcuts
             */
-            let config = app.state::<config_utils::ConfigData>();
-            let loc_name = &config.local_name;
-
-            match loc_name {
+            match &config.local_name {
                 Some(actual_loc_name) => {
                     let desk_state = app.state::<TauriSharedDesk>();
 
@@ -170,51 +225,41 @@ fn main() {
                         .0
                         .lock()
                         .expect("Error while unwrapping shared desk");
-                    let desk = desk.as_ref();
-                    match desk {
+                    match desk.as_ref() {
                         /*
                             If the user is returning(has a config) immidiately close the window, not to eat resources
                             And then proceed to try to create the menu.
                         */
                         Ok(desk) => {
                             // Register all shortcuts
-                            let mut shortcut_manager = app.global_shortcut_manager();
-                            let all_positions = &config.saved_positions;
-                            let cloned_pos = all_positions.clone();
-
-                            // A lot of combinations do not not seem to be supported by tauri. Don't know for sure since there are no docs.
-                            for pos in cloned_pos.into_iter() {
-                                // Each iteration needs it's own clone; we do not want to consume the app state
-                                let cloned_desk = desk.clone();
-                                if let Some(shortcut_key) = &pos.shortcut {
-                                    if shortcut_key != "" {
-                                        _ = shortcut_manager.register(
-                                            shortcut_key.as_str(),
-                                            move || {
-                                                block_on(async {
-                                                    loose_idasen::move_to_target(
-                                                        &cloned_desk,
-                                                        pos.value,
-                                                    )
-                                                    .await
-                                                    .unwrap();
-                                                });
-                                            },
-                                        );
-                                    }
-                                }
+                            for position in &config.saved_positions {
+                                register_position_shortcut(
+                                    &app_handle,
+                                    position,
+                                    desk.clone(),
+                                );
                             }
                         }
-                        Err(e) => {
-                            let err_window = tauri::WindowBuilder::new(app, "init_window", tauri::WindowUrl::App("index.html".into())).init_trayasen("Trayasen - Woops!","Error while creating window", None);
-                            
+                        Err(error) => {
+                            let err_window = WebviewWindowBuilder::new(
+                                app,
+                                "init_window",
+                                WebviewUrl::App("index.html".into()),
+                            )
+                            .init_trayasen(
+                                "Trayasen - Woops!",
+                                "Error while creating window",
+                                None,
+                            );
+
                             // Open error window with the error
-                            println!("opening error window! error: {}", e);
-                            
+                            println!("opening error window! error: {}", error);
+
                             // TODO: Passing state as a string literal to window via `eval` is a terrible way to handle state.
                             // This should be passed/handled via tauri state.
                             _ = err_window.eval(
-                                format!(r#"
+                                format!(
+                                    r#"
                                 window.stateWorkaround = {{
                                     title: "The app was not able to connect to your saved desk with name: `{}`.",
                                     description: "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again.",
@@ -222,22 +267,30 @@ fn main() {
                                     error: "{}"
                                 }}
                                 history.replaceState({{}}, '','/error');
-                        "#, actual_loc_name,actual_loc_name, e.to_string()).as_str(),
+                        "#,
+                                    actual_loc_name, actual_loc_name, error
+                                )
+                                .as_str(),
                             );
                         }
                     }
                 }
                 None => {
-                    let init_window = tauri::WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into())).init_trayasen("Trayasen - Setup", "Error while creating window", None);
-                    
+                    let init_window = WebviewWindowBuilder::new(
+                        app,
+                        "main",
+                        WebviewUrl::App("index.html".into()),
+                    )
+                    .init_trayasen(
+                        "Trayasen - Setup",
+                        "Error while creating window",
+                        None,
+                    );
+
                     // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
                     init_window
                         .show()
                         .expect("Error while trying to show the window");
-
-                    
-                    #[cfg(any(windows, target_os = "macos"))]
-                    set_shadow(&init_window, true).unwrap();
                 }
             }
 
@@ -255,35 +308,6 @@ fn main() {
             has_custom_decorations
         ])
         .enable_macos_default_menu(false)
-        // Register all the tray events, eg. clicks and stuff
-        .on_system_tray_event(move |app, event| match event {
-            SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-                config_utils::QUIT_ID => tray_utils::handle_exit_menu_click(),
-                config_utils::ABOUT_ID => tray_utils::handle_about_menu_click(app),
-                config_utils::ADD_POSITION_ID => tray_utils::handle_new_position_menu_click(app),
-                config_utils::MANAGE_POSITIONS_ID => {
-                    tray_utils::handle_manage_positions_menu_click(app)
-                }
-                // If event is not one of predefined, assume a position has been clicked
-                remaining_id => {
-                    // Get config one more time, in case there's a new position added since intialization
-                    let config = config_utils::get_config();
-                    let updated_menus = config_utils::get_menu_items_from_config(&config);
-                    let found_elem = updated_menus
-                        .iter()
-                        .find(|pos| pos.position_elem.id_str == remaining_id)
-                        .expect("Clicked element not found");
-                    block_on(async {
-                        let desk = desk_mutex::get_desk_from_app_state(app);
-
-                        loose_idasen::move_to_target(&desk, found_elem.value)
-                            .await
-                            .unwrap();
-                    });
-                }
-            },
-            _ => {}
-        })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(move |app_handle, event| match event {
@@ -296,11 +320,13 @@ fn main() {
             */
             tauri::RunEvent::ExitRequested { api, .. } => {
                 println!("Exit requested");
-                let config = config_utils::get_config();
-                let main_menu = config_utils::create_main_tray_menu(&config);
+                let config = config_utils::get_config(app_handle.clone());
+                let main_menu = config_utils::create_main_tray_menu(app_handle, &config)
+                    .expect("Error whilst rebuilding main menu");
                 app_handle
-                    .tray_handle()
-                    .set_menu(main_menu)
+                    .tray_by_id(MAIN_TRAY_ID)
+                    .expect("Error whilst getting main tray")
+                    .set_menu(Some(main_menu))
                     .expect("Error whilst unwrapping main menu");
 
                 // Do not actually exit the app

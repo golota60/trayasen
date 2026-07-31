@@ -402,18 +402,30 @@ pub async fn connect_to_desk_by_name_internal(
     Ok(desk_to_connect)
 }
 
-// TODO: Figure out bluetooth mocking to improve testing; without mocks tests are impossible
 #[cfg(test)]
-mod connecting_suite {
-    #[tokio::test]
-    async fn should_fail_for_not_found_desk() {
-        let result =
-            crate::loose_idasen::get_list_of_desks(&Some("nonexistant_desk".to_string())).await;
-        let err = match result {
-            Err(error) => error,
-            Ok(_) => panic!("nonexistent desk should not be found"),
-        };
+mod tests {
+    use super::*;
 
-        assert_eq!(err.to_string(), "Cannot find the device.");
+    #[test]
+    fn decodes_position_and_speed_without_bluetooth_hardware() {
+        assert_eq!(
+            bytes_to_position_speed(&[0x34, 0x12, 0xfe, 0xff]),
+            PositionSpeed {
+                position: MIN_HEIGHT + 0x1234,
+                speed: -2,
+            }
+        );
+    }
+
+    #[test]
+    fn bluetooth_error_messages_remain_user_facing() {
+        assert_eq!(
+            BtError::CannotFindDevice.to_string(),
+            "Cannot find the device."
+        );
+        assert_eq!(
+            BtError::PositionNotInRange.to_string(),
+            "Desired position has to be between MIN_HEIGHT and MAX_HEIGHT."
+        );
     }
 }

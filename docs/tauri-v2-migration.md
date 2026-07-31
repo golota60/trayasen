@@ -68,7 +68,7 @@ $ cd src-tauri && cargo test
 
 The project is standardized on npm for the Tauri v2 migration. `package-lock.json` is the sole lockfile and `yarn.lock` has been removed. Use `npm ci`, `npm run build`, and the existing npm scripts for dependency and frontend tasks. CircleCI, the GitHub release workflow, Tauri frontend hooks, and the README all use npm and therefore consume the committed lockfile.
 
-`npm install` and a clean `npm ci` completed without peer dependency errors. npm reported 20 high-severity audit findings in the existing dependency tree; addressing unrelated dependency upgrades is outside this task.
+`npm install` and clean `npm ci` runs completed without peer dependency errors. The final review verification ran `npm audit` against the committed lockfile and reported 0 vulnerabilities.
 
 ## Frontend Tooling Versions
 
@@ -184,7 +184,18 @@ The incompatible `window-shadows 0.2.2` dependency (which uses raw-window-handle
 
 The frontend now imports command invocation from `@tauri-apps/api/core`, obtains the active window with `getCurrentWindow`, and uses the v2 process and autostart plugin packages. Existing `rustUtils.ts` wrapper names, command names, and command argument objects are unchanged. The Rust process plugin is registered so the existing reset/relaunch flows can call the v2 plugin at runtime.
 
-The default capability grants only the required window close/minimize/toggle-maximize, process restart, and autostart enable/disable/status permissions. The migration did not introduce a broad v1-style allowlist.
+The default capability grants only the required window close/minimize/toggle-maximize/start-dragging, process restart, autostart enable/disable/status, and scoped external-URL opener permissions. The migration did not introduce a broad v1-style allowlist.
+
+## Final Review Fixes
+
+- Custom titlebar drag regions now have the Tauri v2 `core:window:allow-start-dragging` permission required by `data-tauri-drag-region`.
+- Error-window desk names, error text, and all programmatically supplied routes are serialized as JSON before inclusion in initialization scripts. Quotes, backslashes, newlines, HTML/script-like text, and JavaScript line separators are covered by focused round-trip unit tests, and the post-build `eval` path was removed.
+- Rust's default test suite is hermetic: the previous nonexistent-desk test, which initialized the platform Bluetooth manager and could contact Linux BlueZ/D-Bus, was replaced with pure protocol-decoding and error-contract tests. Hardware discovery remains runtime behavior and is not exercised by `cargo test` or CircleCI.
+- macOS tray construction again sets `icon_as_template(true)` so the tray icon follows menu-bar template rendering.
+- About links now use the official Tauri v2 opener plugin. The capability enables only `open_url` and scopes it to the three URLs rendered by the About page; it does not grant file/path opening or arbitrary URL access.
+- `npm audit` currently reports 0 vulnerabilities for the committed npm dependency graph.
+
+Residual verification limits are unchanged for physical desk movement and unavailable interactive GUI automation. The About link handler, opener registration, exact URL scopes, frontend compilation, capability generation, app packaging, and bounded app launch were validated; actually clicking the links was not attempted because it would open the host browser from this non-interactive run.
 
 ## Intentional Changes
 
@@ -199,7 +210,7 @@ The default capability grants only the required window close/minimize/toggle-max
 - Change: Tauri core, CLI, configuration, and permissions migrated from v1 to v2 with scoped capabilities and plugins.
   - Reason: Tauri v2 replaces the v1 allowlist and several core APIs with capabilities and official plugins.
   - User impact: No intended workflow change; users retain the same app windows, tray actions, shortcuts, autostart control, and relaunch flow.
-  - Verification: `npm ls @tauri-apps/api @tauri-apps/cli @tauri-apps/plugin-autostart @tauri-apps/plugin-process --depth=0`, `cargo check`, and `npm run tauri:test`.
+  - Verification: `npm ls @tauri-apps/api @tauri-apps/cli @tauri-apps/plugin-autostart @tauri-apps/plugin-opener @tauri-apps/plugin-process --depth=0`, `cargo check --locked`, and `cargo test --locked`.
 - Change: Frontend command invocation, current-window access, process relaunch, and autostart calls use their Tauri v2 core/plugin import paths.
   - Reason: The corresponding Tauri v1 exports and legacy autostart package are unavailable in v2.
   - User impact: No intended visible change; existing wrapper and Rust command interfaces are preserved.
@@ -207,7 +218,7 @@ The default capability grants only the required window close/minimize/toggle-max
 - Change: The Rust runtime uses v2 webview-window, menu, tray, global-shortcut, path, process, and autostart APIs.
   - Reason: The v1 runtime types and managers were removed or replaced in Tauri v2.
   - User impact: Startup, background operation, tray actions, saved-position actions, and shortcuts are intended to remain the same.
-  - Verification: `cargo check`, the three passing Rust tests, the bounded macOS launch, and source inspection of stable tray action IDs.
+  - Verification: `cargo check --locked`, the six passing hermetic Rust tests, the bounded macOS launch, and source inspection of stable tray action IDs.
 - Change: The internal About/Options tray menu ID changed from `about/options` to `about`.
   - Reason: The runtime migration contract uses a stable identifier without a slash, and the menu and handler must agree.
   - User impact: None expected; the visible label remains `About/Options`.
@@ -244,19 +255,24 @@ cargo 1.97.1 (c980f4866 2026-06-30)
 
 Automated results:
 
-- `npm ci`: PASS; installed 465 packages from the lockfile. npm reported 20 high-severity audit findings in the existing dependency tree; unrelated dependency remediation remains outside this migration.
-- `npm run build`: PASS; TypeScript completed and Vite 8.2.0 built 1,507 modules.
+- `npm ci`: PASS; installed 466 packages from the lockfile and reported 0 vulnerabilities.
+- `npm run build`: PASS; TypeScript completed and Vite 8.2.0 built 1,508 modules.
 - `npm run lint`: PASS with no findings.
-- `source "$HOME/.cargo/env" && cd src-tauri && cargo check`: PASS; only the existing dead-code warning for four `ConnectedBtDevice` fields was emitted.
-- `source "$HOME/.cargo/env" && npm run tauri:test`: PASS; 3 passed, 0 failed (`tray_action_ids_remain_stable`, `config_filename_remains_compatible`, and `should_fail_for_not_found_desk`).
+- `npm audit`: PASS; 0 vulnerabilities.
+- `source "$HOME/.cargo/env" && cd src-tauri && cargo fmt -- --check`: PASS.
+- `source "$HOME/.cargo/env" && cd src-tauri && cargo check --locked`: PASS; only the existing dead-code warning for four `ConnectedBtDevice` fields was emitted.
+- `source "$HOME/.cargo/env" && cd src-tauri && cargo test --locked`: PASS; 6 passed, 0 failed, 0 ignored. The suite contains only pure tests and does not initialize Bluetooth, BlueZ, or D-Bus.
+- `source "$HOME/.cargo/env" && npx tauri info`: PASS for project/plugin discovery; it reports the opener Rust and JavaScript packages at 2.5.4. The environment section still notes that full Xcode is not installed, while Xcode Command Line Tools are available.
 - `source "$HOME/.cargo/env" && npm run tauri:build`: application compilation and `.app` bundling PASS, but the all-target command exited 1 while styling the DMG because Finder did not answer the bounded AppleEvent: `execution error: Finder got an error: AppleEvent timed out. (-1712)` followed by `Failed running AppleScript`. This is a packaging-environment blocker, not a compile failure.
-- `source "$HOME/.cargo/env" && npm run tauri:build -- --bundles app`: PASS; produced `src-tauri/target/release/bundle/macos/Trayasen.app` without invoking Finder's DMG styling step.
+- `source "$HOME/.cargo/env" && npm run tauri:build -- --bundles app`: PASS after the final fixes; produced `src-tauri/target/release/bundle/macos/Trayasen.app` without invoking Finder's DMG styling step. Capability/config generation accepted the scoped opener and start-dragging permissions.
 
 The review inventory search found current v2 imports in `src/*.tsx` and historical references in the migration plan and this evidence document. It found no active v1-only API use in application source, configuration, or package manifests.
 
 ### Bounded macOS smoke check
 
-The packaged app executable was launched directly for 12 seconds with an isolated temporary `HOME`, `TMPDIR`, and pre-created `Library/Application Support`, then terminated with `SIGTERM`. At five seconds it was still alive and macOS Launch Services identified the process as `Trayasen` with bundle identifier `szywis.Trayasen-v0.1.0`. Core Graphics reported three on-screen app-owned surfaces: two 34-pixel-wide layer-25 menu-bar surfaces and one 1280×720 layer-5 application window. The latter and the logs provide non-interactive evidence that the no-config setup window opened; the menu-bar surfaces provide non-interactive evidence that the tray item was created.
+After the final fix package was built, its executable was launched again for 8 seconds with an isolated temporary `HOME`, `TMPDIR`, and pre-created `Library/Application Support`. It remained alive until the deliberate `SIGTERM`, created only the isolated default config, and logged normal no-config loading and Bluetooth discovery. This recheck did not connect to or move a desk, modify real user state, click About links, or alter the residual classifications below.
+
+The earlier packaged app executable was launched directly for 12 seconds with an isolated temporary `HOME`, `TMPDIR`, and pre-created `Library/Application Support`, then terminated with `SIGTERM`. At five seconds it was still alive and macOS Launch Services identified the process as `Trayasen` with bundle identifier `szywis.Trayasen-v0.1.0`. Core Graphics reported three on-screen app-owned surfaces: two 34-pixel-wide layer-25 menu-bar surfaces and one 1280×720 layer-5 application window. The latter and the logs provide non-interactive evidence that the no-config setup window opened; the menu-bar surfaces provide non-interactive evidence that the tray item was created.
 
 The launch created only the isolated `idasen-tray-config.json` containing `{"local_name":null,"saved_positions":[]}`, logged the isolated config path and no-desk state, and completed Bluetooth discovery. It remained alive for the full interval, exited after the deliberate signal, and left no app process. SHA-256 snapshots taken before and after the run confirmed that the real config file and the contents of the real `~/Library/LaunchAgents` directory did not change. No desk connection or movement was requested.
 
@@ -278,6 +294,6 @@ A window-only `screencapture` was attempted against the Core Graphics ID for the
 
 ## Platform Verification Status
 
-- macOS: frontend/Rust builds, Rust tests, `.app` packaging, isolated launch, tray-surface creation, setup-window creation, config creation, and Bluetooth discovery verified; DMG styling remains blocked by Finder AppleEvent timeout. About/Options, autostart write/readback, reset/relaunch, tray Quit, and physical-desk operations remain unverified.
+- macOS: frontend/Rust builds, hermetic Rust tests, `.app` packaging, isolated launch after the final fixes, tray-surface creation, setup-window creation, config creation, and Bluetooth discovery verified; DMG styling remains blocked by the previously observed Finder AppleEvent timeout. About/Options interaction (including clicking external links), autostart write/readback, reset/relaunch, tray Quit, and physical-desk operations remain unverified.
 - Windows: not verified on Tauri v2.
 - Linux: not verified on Tauri v2; CI prerequisites were updated but have not run in this local macOS environment.

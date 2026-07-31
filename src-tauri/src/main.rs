@@ -7,6 +7,7 @@ use std::sync::Mutex;
 
 use btleplug::platform::Peripheral as PlatformPeripheral;
 use loose_idasen::BtError;
+use serde::Serialize;
 use tauri::{
     async_runtime::block_on, tray::TrayIconBuilder, AppHandle, Manager, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
@@ -19,8 +20,51 @@ mod loose_idasen;
 mod tray_utils;
 
 const MAIN_TRAY_ID: &str = "main-tray";
+const ERROR_ROUTE: &str = "/error";
+const ERROR_DESCRIPTION: &str = "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again.";
 
 pub struct TauriSharedDesk(Mutex<Result<PlatformPeripheral, BtError>>);
+
+#[derive(Serialize)]
+struct ErrorWindowState<'a> {
+    title: String,
+    description: &'static str,
+    desk_name: &'a str,
+    error: &'a str,
+}
+
+fn json_for_initialization_script(value: &impl Serialize) -> String {
+    // JSON string escaping handles quotes, backslashes and control characters. Escaping the
+    // HTML-sensitive characters and JavaScript line separators additionally keeps payloads inert
+    // if this script is ever moved into an inline script context.
+    serde_json::to_string(value)
+        .expect("initialization state should be JSON serializable")
+        .replace('&', "\\u0026")
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e")
+        .replace('\u{2028}', "\\u2028")
+        .replace('\u{2029}', "\\u2029")
+}
+
+pub(crate) fn route_initialization_script(route: &str) -> String {
+    let route = json_for_initialization_script(&route);
+    format!("history.replaceState({{}}, '', {route});")
+}
+
+fn error_initialization_script(desk_name: &str, error: &str) -> String {
+    let state = ErrorWindowState {
+        title: format!(
+            "The app was not able to connect to your saved desk with name: `{desk_name}`."
+        ),
+        description: ERROR_DESCRIPTION,
+        desk_name,
+        error,
+    };
+    let state = json_for_initialization_script(&state);
+    let route = json_for_initialization_script(&ERROR_ROUTE);
+
+    format!("window.stateWorkaround = {state};\nhistory.replaceState({{}}, '', {route});")
+}
 
 // Whether a system should have custom decorations or not
 #[tauri::command]
@@ -181,6 +225,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         // Pass the desk instance to tauri to manage
         .manage(TauriSharedDesk(Mutex::new(Err(BtError::NotInitiated))))
@@ -192,9 +237,10 @@ fn main() {
             If there is a desk name present already, do not bother the end user with windows opening/loading. Just connect to his desk.
             */
             if let Some(local_name) = config.local_name.clone() {
-                let cached_desk = block_on(
-                    loose_idasen::connect_to_desk_by_name_internal(&app_handle, local_name),
-                );
+                let cached_desk = block_on(loose_idasen::connect_to_desk_by_name_internal(
+                    &app_handle,
+                    local_name,
+                ));
                 let initiated_desk = app.state::<TauriSharedDesk>();
                 desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
             }
@@ -205,6 +251,10 @@ fn main() {
             let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID).menu(&tray_menu);
             if let Some(icon) = app.default_window_icon() {
                 tray_builder = tray_builder.icon(icon.clone());
+            }
+            #[cfg(target_os = "macos")]
+            {
+                tray_builder = tray_builder.icon_as_template(true);
             }
             tray_builder
                 .on_menu_event(|app, event| handle_tray_menu_event(app, event.id().as_ref()))
@@ -234,15 +284,14 @@ fn main() {
                         Ok(desk) => {
                             // Register all shortcuts
                             for position in &config.saved_positions {
-                                register_position_shortcut(
-                                    &app_handle,
-                                    position,
-                                    desk.clone(),
-                                );
+                                register_position_shortcut(&app_handle, position, desk.clone());
                             }
                         }
                         Err(error) => {
-                            let err_window = WebviewWindowBuilder::new(
+                            let error = error.to_string();
+                            let init_script =
+                                error_initialization_script(actual_loc_name, error.as_str());
+                            WebviewWindowBuilder::new(
                                 app,
                                 "init_window",
                                 WebviewUrl::App("index.html".into()),
@@ -250,29 +299,11 @@ fn main() {
                             .init_trayasen(
                                 "Trayasen - Woops!",
                                 "Error while creating window",
-                                None,
+                                Some(&init_script),
                             );
 
                             // Open error window with the error
-                            println!("opening error window! error: {}", error);
-
-                            // TODO: Passing state as a string literal to window via `eval` is a terrible way to handle state.
-                            // This should be passed/handled via tauri state.
-                            _ = err_window.eval(
-                                format!(
-                                    r#"
-                                window.stateWorkaround = {{
-                                    title: "The app was not able to connect to your saved desk with name: `{}`.",
-                                    description: "Either try reconnecting with that desk from your system and relaunch Trayasen, or click the button below to run the setup again.",
-                                    desk_name: "{}",
-                                    error: "{}"
-                                }}
-                                history.replaceState({{}}, '','/error');
-                        "#,
-                                    actual_loc_name, actual_loc_name, error
-                                )
-                                .as_str(),
-                            );
+                            println!("opening error window! error: {error}");
                         }
                     }
                 }
@@ -335,4 +366,66 @@ fn main() {
             }
             _ => {}
         });
+}
+
+#[cfg(test)]
+mod initialization_script_tests {
+    use super::*;
+    use serde_derive::Deserialize;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct DecodedErrorWindowState {
+        title: String,
+        description: String,
+        desk_name: String,
+        error: String,
+    }
+
+    #[test]
+    fn error_initialization_keeps_hostile_values_as_json_data() {
+        let desk_name =
+            "desk \"quoted\" \\\\ path\n</script><script>deskPayload()</script>\u{2028}";
+        let error =
+            "failure \"quoted\" \\\\ trace\n</script><script>errorPayload()</script>\u{2029}";
+        let script = error_initialization_script(desk_name, error);
+
+        let state_json = script
+            .strip_prefix("window.stateWorkaround = ")
+            .and_then(|script| script.split_once(";\nhistory.replaceState({}, '', "))
+            .map(|(state, _)| state)
+            .expect("script should contain a JSON state assignment");
+        let decoded: DecodedErrorWindowState = serde_json::from_str(state_json).unwrap();
+
+        assert_eq!(
+            decoded,
+            DecodedErrorWindowState {
+                title: format!(
+                    "The app was not able to connect to your saved desk with name: `{desk_name}`."
+                ),
+                description: ERROR_DESCRIPTION.to_string(),
+                desk_name: desk_name.to_string(),
+                error: error.to_string(),
+            }
+        );
+        assert!(!script.contains("</script>"));
+        assert!(!script.contains('\u{2028}'));
+        assert!(!script.contains('\u{2029}'));
+        assert!(script.contains("\\n"));
+        assert!(script.contains("\\\\"));
+        assert!(script.contains("\\\""));
+    }
+
+    #[test]
+    fn route_initialization_keeps_hostile_route_as_json_data() {
+        let route = "/error\"; routePayload(); //\\path\n</script>\u{2028}";
+        let script = route_initialization_script(route);
+        let route_json = script
+            .strip_prefix("history.replaceState({}, '', ")
+            .and_then(|script| script.strip_suffix(");"))
+            .expect("script should contain a JSON route argument");
+
+        assert_eq!(serde_json::from_str::<String>(route_json).unwrap(), route);
+        assert!(!script.contains("</script>"));
+        assert!(!script.contains('\u{2028}'));
+    }
 }

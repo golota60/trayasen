@@ -1,15 +1,28 @@
 import clsx from "clsx";
-import { HTMLProps } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { HTMLProps, MouseEvent } from "react";
 
 interface Props extends HTMLProps<HTMLAnchorElement> {}
 
-const Href = ({ children, className, ...props }: Props) => {
+const Href = ({ children, className, href, onClick, ...props }: Props) => {
+  const openExternalUrl = (event: MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(event);
+    if (event.defaultPrevented || !href || !/^https?:\/\//.test(href)) {
+      return;
+    }
+
+    event.preventDefault();
+    void openUrl(href);
+  };
+
   return (
     <a
       className={clsx(
         className,
         "font-medium text-primary underline underline-offset-4"
       )}
+      href={href}
+      onClick={openExternalUrl}
       {...props}
     >
       {children}

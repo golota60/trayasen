@@ -8,9 +8,18 @@
     "core:window:allow-close",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging",
     "process:allow-restart",
     "autostart:allow-enable",
     "autostart:allow-disable",
-    "autostart:allow-is-enabled"
+    "autostart:allow-is-enabled",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/golota60" },
+        { "url": "https://szymon.codes" },
+        { "url": "https://github.com/golota60/trayasen/issues/new" }
+      ]
+    }
   ]
 }

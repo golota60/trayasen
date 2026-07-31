@@ -148,6 +148,28 @@ Comparison checklist for later migration tasks:
 - [ ] `src-tauri/capabilities/default.json`: create an explicit Trayasen capability and grant only permissions needed for its windows, tray, shortcuts, autostart, and other migrated commands.
 - [ ] `src-tauri/src/main.rs`: adapt v1 tray, global-shortcut, window, and run-event APIs to v2 while preserving startup, background, menu, and window behavior; account for the fresh scaffold's thin main entry point when choosing the final source layout.
 
+## Rust API Migration Errors
+
+Rust dependencies resolve successfully with Cargo 1.97.1, and `cargo check` accepts the migrated Tauri v2 configuration and capability permissions before reaching application compilation. The resolved foundation uses Tauri 2.11.5, `tauri-build` 2.6.3, `tauri-plugin-autostart` 2.5.1, `tauri-plugin-global-shortcut` 2.3.2, and `tauri-plugin-process` 2.3.1.
+
+Application compilation then fails on the expected Tauri v1 runtime APIs, which are deferred to the Rust API migration task. The first reported errors are:
+
+```text
+error[E0432]: unresolved imports `tauri::GlobalShortcutManager`, `tauri::WindowBuilder`
+  --> src/main.rs:11:13
+
+error[E0433]: cannot find `api` in `tauri`
+ --> src/config_utils.rs:8:5
+
+error[E0432]: unresolved imports `tauri::SystemTray`, `tauri::SystemTrayEvent`
+  --> src/main.rs:12:47
+
+error[E0432]: unresolved imports `tauri::CustomMenuItem`, `tauri::GlobalShortcutManager`, `tauri::SystemTrayMenu`, `tauri::SystemTrayMenuItem`, `tauri::SystemTraySubmenu`
+ --> src/config_utils.rs:8:26
+```
+
+Cargo subsequently reports the remaining expected v1 API incompatibilities around `WindowUrl`, `global_shortcut_manager`, and `system_tray`. No runtime Rust APIs were changed in this foundation task.
+
 ## Intentional Behavior Changes
 
 None yet.

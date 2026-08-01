@@ -13,6 +13,8 @@
     "preview": "vite preview",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
+    "release:check": "node scripts/check-release-version.mjs",
+    "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:test": "cd src-tauri && cargo test && cd ..",

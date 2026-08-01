@@ -1,108 +1,128 @@
-import { RouteConfig, createBrowserRouter } from "found";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
+import { Route, Switch } from "wouter";
+import { YStack } from "tamagui";
 import AboutPage from "./AboutPage";
-import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
 import ManagePositionsPage from "./ManagePositionsPage";
-import { Button } from "./generic/button";
+import NewPositionPage from "./NewPositionPage";
 import { connectToDesk, removeConfig, resetDesk } from "./rustUtils";
-import Spinner from "./generic/Spinner";
+import { AppButton } from "./ui/Button";
+import { SurfaceCard } from "./ui/Card";
+import { Alert, CarrotSpinner } from "./ui/Feedback";
+import { PageShell } from "./ui/PageShell";
+import { TechnicalDisclosure } from "./ui/TechnicalDisclosure";
 
-// This error will only happen for users with a desk already set up. Intro Page errors are be handled in Intro Page.
+interface ReturningUserErrorState {
+  title?: string;
+  description?: string;
+  error?: unknown;
+  desk_name?: string;
+}
+
+// This error only happens for users with an existing configuration. Intro errors are handled by IntroPage.
 const ReturningUserErrorPage = () => {
   const [isLoading, setLoading] = useState(false);
   const [isResetting, setResetting] = useState(false);
-  const [error, setError] = useState<string>("");
-  const [resetError, setResetError] = useState<string>("");
-  const errorState = (window as any)?.stateWorkaround;
+  const [error, setError] = useState("");
+  const [resetError, setResetError] = useState("");
+  const errorState = (
+    window as Window & { stateWorkaround?: ReturningUserErrorState }
+  ).stateWorkaround;
   const canRetryDesk = Boolean(errorState?.desk_name);
 
   if (isLoading) {
     return (
-      <div>
-        <Spinner size="md" />
-      </div>
+      <PageShell title="Reconnecting to desk">
+        <YStack
+          alignItems="center"
+          flex={1}
+          justifyContent="center"
+          minHeight={320}
+        >
+          <CarrotSpinner aria-label="Reconnecting to saved desk" size="lg" />
+        </YStack>
+      </PageShell>
     );
   }
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <div>{errorState?.title}</div>
-      <div>{errorState?.description}</div>
-      {canRetryDesk ? (
-        <>
-          <div>
-            <Button
-              onClick={async () => {
-                setLoading(true);
-                setError("");
-                try {
-                  await connectToDesk(errorState.desk_name);
-                  await relaunch();
-                } catch (retryError) {
-                  setError(String(retryError));
-                  setLoading(false);
-                }
-              }}
-            >
-              Try again
-            </Button>
-          </div>
-          <div>or</div>
-        </>
-      ) : null}
-      <div>
-        <Button
-          disabled={isResetting}
-          onClick={async () => {
-            setResetting(true);
-            setResetError("");
-            try {
-              if (canRetryDesk) {
-                await resetDesk();
-              } else {
-                await removeConfig();
-              }
-              await relaunch();
-            } catch (actionError) {
-              console.error(
-                "Could not reset and relaunch Trayasen",
-                actionError
-              );
-              setResetError(String(actionError));
-              setResetting(false);
-            }
-          }}
-        >
-          {isResetting
-            ? "Resetting..."
-            : canRetryDesk
-            ? "Reset app and desk name & open the connect intro menu"
-            : "Reset config & restart the app"}
-        </Button>
-      </div>
+  const feedback = [
+    errorState?.description,
+    error ? `Action failed: ${error}` : "",
+    resetError ? `Reset failed: ${resetError}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-      <div>Error content:</div>
-      <div>{errorState?.error}</div>
-      {error ? (
-        <div className="text-red-500">Action failed: {error}</div>
-      ) : null}
-      {resetError ? (
-        <div className="text-red-500">Reset failed: {resetError}</div>
-      ) : null}
-    </div>
+  const retry = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      await connectToDesk(errorState?.desk_name as string);
+      await relaunch();
+    } catch (retryError) {
+      setError(String(retryError));
+      setLoading(false);
+    }
+  };
+
+  const reset = async () => {
+    setResetting(true);
+    setResetError("");
+
+    try {
+      if (canRetryDesk) {
+        await resetDesk();
+      } else {
+        await removeConfig();
+      }
+      await relaunch();
+    } catch (actionError) {
+      console.error("Could not reset and relaunch Trayasen", actionError);
+      setResetError(String(actionError));
+      setResetting(false);
+    }
+  };
+
+  return (
+    <PageShell title="Connection recovery">
+      <SurfaceCard>
+        <Alert
+          tone="error"
+          title={errorState?.title ?? "Trayasen needs attention"}
+        >
+          {feedback}
+        </Alert>
+
+        <YStack alignItems="flex-start" gap="$3">
+          {canRetryDesk ? (
+            <AppButton onPress={retry}>Try again</AppButton>
+          ) : null}
+          <AppButton
+            loading={isResetting}
+            loadingLabel="Resetting"
+            onPress={reset}
+            variant="destructive"
+          >
+            {canRetryDesk
+              ? "Forget desk and restart setup"
+              : "Reset config and restart"}
+          </AppButton>
+        </YStack>
+
+        <TechnicalDisclosure label="Technical details">
+          {String(errorState?.error ?? "")}
+        </TechnicalDisclosure>
+      </SurfaceCard>
+    </PageShell>
   );
 };
 
-const routeConfig: RouteConfig = [
+export const appRoutes: Array<{
+  path: string;
+  Component: ComponentType;
+}> = [
   { path: "/error", Component: ReturningUserErrorPage },
   { path: "/about", Component: AboutPage },
   { path: "/new-position", Component: NewPositionPage },
@@ -111,13 +131,14 @@ const routeConfig: RouteConfig = [
   { path: "/*", Component: IntroPage },
 ];
 
-const BrowserRouter = createBrowserRouter({ routeConfig });
-
 function App() {
   return (
-    <div className="flex-col h-full flex justify-center items-center font-sans bg-background">
-      <BrowserRouter />
-    </div>
+    <Switch>
+      {appRoutes.slice(0, -1).map(({ path, Component }) => (
+        <Route key={path} path={path} component={Component} />
+      ))}
+      <Route component={IntroPage} />
+    </Switch>
   );
 }
 

@@ -37,7 +37,6 @@ export const createNewElem = async (
   value: string | number,
   shortcutvalue?: string
 ): Promise<"duplicate" | "success"> => {
-  console.log(shortcutvalue);
   return await invoke("create_new_elem", {
     name,
     value: Number(value),

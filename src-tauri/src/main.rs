@@ -93,6 +93,22 @@ fn has_custom_decorations() -> bool {
     cfg!(windows)
 }
 
+const DEFAULT_WINDOW_WIDTH: f64 = 1200.0;
+const DEFAULT_WINDOW_HEIGHT: f64 = 800.0;
+
+#[cfg(test)]
+mod window_tests {
+    use super::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
+
+    #[test]
+    fn default_window_uses_compact_utility_size() {
+        assert_eq!(
+            (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
+            (800.0, 600.0)
+        );
+    }
+}
+
 pub trait WindowInitUtils {
     fn init_trayasen(self, title: &str, init_script: Option<&str>) -> tauri::Result<WebviewWindow>;
 }
@@ -104,13 +120,13 @@ where
     fn init_trayasen(self, title: &str, init_script: Option<&str>) -> tauri::Result<WebviewWindow> {
         // We want to replace borders only on Windows, as on macOS they are pretty enough, and on Linux custom shadows are unsupported.
         let mut window_builder = if has_custom_decorations() {
-            self.inner_size(1280.0, 720.0)
+            self.inner_size(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
                 .title(title)
                 .always_on_top(true)
                 .decorations(false)
                 .shadow(true)
         } else {
-            self.inner_size(1280.0, 720.0)
+            self.inner_size(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
                 .title(title)
                 .always_on_top(true)
         };

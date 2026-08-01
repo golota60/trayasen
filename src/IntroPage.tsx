@@ -1,17 +1,17 @@
 import { relaunch } from "@tauri-apps/plugin-process";
-import { Link } from "found";
+import { RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { Text, XStack, YStack } from "tamagui";
 import useSimpleAsync from "use-simple-async";
-import {
-  TooltipProvider,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "./generic/tooltip";
 import DeskElement from "./DeskElement";
-import { Button } from "./generic/button";
-import Spinner from "./generic/Spinner";
+import { filterDevices } from "./features/devices/deviceFilters";
 import { getAvailableDesks, removeConfig } from "./rustUtils";
+import { AppButton } from "./ui/Button";
+import { SurfaceCard } from "./ui/Card";
+import { Alert, CarrotSpinner, StatePanel } from "./ui/Feedback";
+import { LinkButton } from "./ui/LinkButton";
+import { PageShell } from "./ui/PageShell";
+import { TechnicalDisclosure } from "./ui/TechnicalDisclosure";
 
 const IntroPage = () => {
   const [data, { error, loading: devicesLoading, retry }] = useSimpleAsync(
@@ -30,118 +30,151 @@ const IntroPage = () => {
 
   const actualError = error || deskError;
 
+  const resetAndRestart = async () => {
+    setResetting(true);
+    setResetError(undefined);
+    try {
+      await removeConfig();
+      await relaunch();
+    } catch (actionError) {
+      console.error("Could not reset and relaunch Trayasen", actionError);
+      setResetError(String(actionError));
+      setResetting(false);
+    }
+  };
+
   if (actualError) {
     return (
-      <div>
-        Something went wrong.{" "}
-        <div>
-          <Button
-            disabled={isResetting}
-            onClick={async () => {
-              setResetting(true);
-              setResetError(undefined);
-              try {
-                await removeConfig();
-                await relaunch();
-              } catch (actionError) {
-                console.error(
-                  "Could not reset and relaunch Trayasen",
-                  actionError
-                );
-                setResetError(String(actionError));
-                setResetting(false);
-              }
-            }}
-          >
-            {isResetting ? "Resetting..." : "Reset config & restart the app"}
-          </Button>
-        </div>
-        <div>
-          Error contents: <p>{String(actualError as any)}</p>
-        </div>
-        {resetError ? (
-          <div className="text-red-500">Reset failed: {resetError}</div>
-        ) : null}
-      </div>
+      <PageShell title="Connection recovery">
+        <SurfaceCard>
+          <Alert tone="error" title="Something went wrong">
+            Trayasen could not discover or connect to a desk.
+          </Alert>
+          <YStack alignItems="flex-start" gap="$3">
+            <AppButton
+              loading={isResetting}
+              loadingLabel="Resetting"
+              onPress={resetAndRestart}
+              variant="destructive"
+            >
+              Reset config and restart the app
+            </AppButton>
+          </YStack>
+          {resetError ? (
+            <Alert tone="error" title="Reset failed">
+              {resetError}
+            </Alert>
+          ) : null}
+          <TechnicalDisclosure label="Error details">
+            {String(actualError)}
+          </TechnicalDisclosure>
+        </SurfaceCard>
+      </PageShell>
     );
   }
 
-  const dataToDisplay = showAll
-    ? data
-    : data?.filter((e) => e.name.includes("Desk"));
+  const devices = filterDevices(data, showAll);
+  const controlsDisabled = devicesLoading || connectingLoading || isConnected;
 
   return (
-    <div className="w-full h-full flex flex-col justify-center items-center">
-      <img src="/carrot.png" alt="A carrot logo" />
-      <h1
-        className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0
- mt-2 mb-3"
-      >
-        Welcome to Trayasen!
-      </h1>
-      <p>
-        This app will help you to interact with your IKEA Idasen Desk from the
-        system tray.
-      </p>
-      <div className="flex flex-col justify-center items-center my-4">
-        <>
-          <p>No saved desk found. Connect to one of desks listed below:</p>
-          <div className="w-64 overflow-x-auto p-2 h-64">
-            {devicesLoading ? (
-              <div className="flex items-center justify-center flex-col h-full">
-                <Spinner size="lg" />
-                Searching for bluetooth devices...
-              </div>
-            ) : (
-              dataToDisplay?.map((e, i) => (
+    <PageShell
+      description="Find a nearby IKEA Idasen desk and connect it to Trayasen."
+      title="Connect your desk"
+    >
+      <XStack alignItems="stretch" gap="$5" $sm={{ flexDirection: "column" }}>
+        <YStack flex={0.7} gap="$3" justifyContent="center">
+          <Text color="$color" fontSize="$7" fontWeight="700">
+            Bluetooth setup
+          </Text>
+          <Text color="$muted" lineHeight="$5">
+            Trayasen lets you control your desk from the system tray. Choose a
+            nearby desk to get started.
+          </Text>
+        </YStack>
+
+        <SurfaceCard flex={1.3}>
+          <YStack gap="$1">
+            <Text color="$color" fontSize="$7" fontWeight="700">
+              Nearby devices
+            </Text>
+            <Text color="$muted">Select the desk you want to use.</Text>
+          </YStack>
+
+          {devicesLoading ? (
+            <YStack aria-busy aria-live="polite" role="status">
+              <StatePanel
+                description="This can take a few seconds."
+                icon={<CarrotSpinner decorative size="md" />}
+                title="Searching for Bluetooth devices"
+              />
+            </YStack>
+          ) : devices.length === 0 ? (
+            <YStack aria-live="polite" role="status">
+              <StatePanel
+                description="Refresh the scan or show all Bluetooth devices."
+                title="No matching desks found"
+              />
+            </YStack>
+          ) : (
+            <YStack gap="$3">
+              {devices.map((device) => (
                 <DeskElement
-                  key={i}
-                  disabled={!!connectingLoading}
-                  onLoadStart={() => setConnectingLoading(true)}
-                  onLoadEnd={() => setConnectingLoading(false)}
-                  onError={setDeskError}
-                  deskName={e.name}
+                  key={device.name}
+                  deskName={device.name}
+                  disabled={connectingLoading || isConnected}
+                  isConnected={device.name === connectedNewDesk}
                   onConnect={() => {
                     setIsConnected(true);
-                    setConnectedNewDesk(e.name);
+                    setConnectedNewDesk(device.name);
                   }}
-                  isConnected={e.name === connectedNewDesk}
+                  onError={setDeskError}
+                  onLoadEnd={() => setConnectingLoading(false)}
+                  onLoadStart={() => setConnectingLoading(true)}
                 />
-              ))
-            )}
-          </div>
-          If your desk has a different name from "Desk XXXX", click the button
-          below to expand the list
-          <div>
-            <Button
-              className="mr-1"
-              disabled={!!connectedNewDesk || !!devicesLoading}
-              onClick={() => {
-                retry();
-              }}
+              ))}
+            </YStack>
+          )}
+
+          <Text color="$muted" fontSize="$3">
+            If your desk has a different name from &quot;Desk XXXX&quot;, show
+            all devices to find it by its alternate name.
+          </Text>
+
+          <XStack flexWrap="wrap" gap="$3" $sm={{ flexDirection: "column" }}>
+            <AppButton
+              disabled={controlsDisabled}
+              onPress={retry}
+              variant="secondary"
             >
-              Refresh
-            </Button>
-            <Button onClick={() => setShowAll(true)}>Show all devices</Button>
-          </div>
-        </>
-      </div>
-      <p>Then, add a new postition!</p>
-      <TooltipProvider>
-        <Tooltip disableHoverableContent={!isConnected} delayDuration={100}>
-          <TooltipTrigger>
-            <Button className="mt-4" disabled={!isConnected}>
-              <Link to="/new-position">Add a new position!</Link>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>
-              You have to be connected to a desk to start adding new positions
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
+              <XStack alignItems="center" gap="$2">
+                <RefreshCw aria-hidden size={16} />
+                <Text color="inherit">Refresh</Text>
+              </XStack>
+            </AppButton>
+            <AppButton
+              disabled={controlsDisabled}
+              onPress={() => setShowAll((current) => !current)}
+              variant="secondary"
+            >
+              {showAll ? "Show desks only" : "Show all devices"}
+            </AppButton>
+          </XStack>
+
+          {isConnected ? (
+            <YStack alignItems="flex-start" gap="$3">
+              <Alert tone="success" title="Desk connected">
+                You can now save your first standing or sitting position.
+              </Alert>
+              <LinkButton to="/new-position">Add first position</LinkButton>
+            </YStack>
+          ) : (
+            <Text color="$muted">
+              Connect to a desk before adding your first position.
+            </Text>
+          )}
+        </SurfaceCard>
+      </XStack>
+    </PageShell>
   );
 };
 

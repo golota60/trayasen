@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button } from "./generic/button";
-import Spinner from "./generic/Spinner";
+import { Text, XStack, YStack } from "tamagui";
 import { connectToDesk } from "./rustUtils";
+import { AppButton } from "./ui/Button";
 
 interface Props {
   deskName: string;
@@ -24,30 +24,47 @@ const DeskElement = ({
 }: Props) => {
   const [loading, setLoading] = useState(false);
 
-  const text = isConnected ? "Connected!" : "Connect";
+  const connect = async () => {
+    setLoading(true);
+    onLoadStart?.();
+    try {
+      await connectToDesk(deskName);
+      onConnect?.();
+    } catch (error) {
+      onError(String(error));
+    } finally {
+      setLoading(false);
+      onLoadEnd?.();
+    }
+  };
 
   return (
-    <div className="flex justify-between items-center my-4">
-      <span>{deskName}</span>
-      <Button
-        disabled={disabled || loading}
-        className="flex justify-center items-center"
-        onClick={async () => {
-          setLoading(true);
-          onLoadStart?.();
-          try {
-            await connectToDesk(deskName);
-          } catch (e) {
-            onError(e as string);
-          }
-          setLoading(false);
-          onLoadEnd?.();
-          onConnect?.();
-        }}
+    <XStack
+      alignItems="center"
+      borderColor={isConnected ? "$success" : "$borderColor"}
+      borderRadius="$4"
+      borderWidth={1}
+      gap="$4"
+      justifyContent="space-between"
+      padding="$3"
+    >
+      <YStack flex={1} gap="$1">
+        <Text color="$color" fontWeight="600">
+          {deskName}
+        </Text>
+        <Text color={isConnected ? "$success" : "$muted"} fontSize="$3">
+          {isConnected ? "Connected" : "Available"}
+        </Text>
+      </YStack>
+      <AppButton
+        disabled={disabled || isConnected}
+        loading={loading}
+        loadingLabel="Connecting"
+        onPress={connect}
       >
-        {loading ? <Spinner size="sm" /> : text}
-      </Button>
-    </div>
+        {isConnected ? "Connected" : "Connect"}
+      </AppButton>
+    </XStack>
   );
 };
 

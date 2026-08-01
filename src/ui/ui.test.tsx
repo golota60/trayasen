@@ -174,6 +174,19 @@ describe("shared UI", () => {
     ).toBeInTheDocument();
   });
 
+  it("separates the page header from its content", () => {
+    renderUi(
+      <PageShell title="Manage positions">
+        <p>Page content</p>
+      </PageShell>
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Manage positions" }).closest("header")
+    ).not.toBeNull();
+    expect(screen.getByText("Page content").closest("main")).not.toBeNull();
+  });
+
   it("constrains and wraps a themed technical disclosure", () => {
     const technicalText = `Native failure: ${"x".repeat(500)}`;
     renderUi(

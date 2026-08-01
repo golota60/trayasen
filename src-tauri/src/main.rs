@@ -93,8 +93,8 @@ fn has_custom_decorations() -> bool {
     cfg!(windows)
 }
 
-const DEFAULT_WINDOW_WIDTH: f64 = 800.0;
-const DEFAULT_WINDOW_HEIGHT: f64 = 600.0;
+const DEFAULT_WINDOW_WIDTH: f64 = 1200.0;
+const DEFAULT_WINDOW_HEIGHT: f64 = 800.0;
 
 #[cfg(test)]
 mod window_tests {

@@ -1,9 +1,21 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import {
+  getBrowserProcessEnvironment,
+  resolveViteNodeEnvironment,
+} from "./src/viteBrowserEnvironment.js";
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
+
+  // Tamagui reads process.env in browser modules. Replace it at build time so
+  // the WebView never needs a Node.js `process` global.
+  define: {
+    "process.env": getBrowserProcessEnvironment(
+      resolveViteNodeEnvironment(command, process.env.NODE_ENV)
+    ),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   // prevent vite from obscuring rust errors
@@ -24,4 +36,4 @@ export default defineConfig({
     // produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_DEBUG,
   },
-});
+}));

@@ -146,7 +146,7 @@ npm run tauri:dev
 
 The app might take a while to build for the first time.
 
-Frontend is using [shadcn/ui](https://ui.shadcn.com/) for styling 
+Frontend styling and components use [Tamagui](https://tamagui.dev/), with a custom dark theme for the desktop interface.
 
 ## Releasing
 

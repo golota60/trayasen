@@ -73,7 +73,7 @@ export const CarrotSpinner = ({
       <Image
         aria-hidden={decorative || undefined}
         aria-label={decorative ? undefined : ariaLabel}
-        className="carrot-spinner"
+        data-testid="carrot-spinner"
         height={dimension}
         role={decorative ? undefined : "img"}
         source={{ uri: "/carrot.png", width: dimension, height: dimension }}

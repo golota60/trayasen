@@ -44,14 +44,14 @@ describe("IntroPage discovery status", () => {
       { error: undefined, loading: true, retry: mocks.retry },
     ]);
 
-    const { container } = renderIntroPage();
+    renderIntroPage();
     const status = screen.getByRole("status");
 
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status).toHaveAttribute("aria-busy", "true");
     expect(status).toHaveTextContent("Searching for Bluetooth devices");
     expect(within(status).queryByRole("img")).not.toBeInTheDocument();
-    expect(container.querySelector(".carrot-spinner")).toHaveAttribute(
+    expect(screen.getByTestId("carrot-spinner")).toHaveAttribute(
       "aria-hidden",
       "true"
     );

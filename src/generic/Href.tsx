@@ -5,14 +5,18 @@ import { HTMLProps, MouseEvent } from "react";
 interface Props extends HTMLProps<HTMLAnchorElement> {}
 
 const Href = ({ children, className, href, onClick, ...props }: Props) => {
-  const openExternalUrl = (event: MouseEvent<HTMLAnchorElement>) => {
+  const openExternalUrl = async (event: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(event);
     if (event.defaultPrevented || !href || !/^https?:\/\//.test(href)) {
       return;
     }
 
     event.preventDefault();
-    void openUrl(href);
+    try {
+      await openUrl(href);
+    } catch (error) {
+      console.error(`Could not open external URL ${href}`, error);
+    }
   };
 
   return (

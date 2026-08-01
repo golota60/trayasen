@@ -1,3 +1,4 @@
+import { useState } from "react";
 import useSimpleAsync from "use-simple-async";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Link } from "found";
@@ -8,7 +9,10 @@ import { getPositions, removePosition } from "./rustUtils";
 const appWindow = getCurrentWindow();
 
 const ManagePositionsPage = () => {
-  const [data, { retry }] = useSimpleAsync(getPositions);
+  const [data, { error: loadError, loading, retry }] =
+    useSimpleAsync(getPositions);
+  const [removingName, setRemovingName] = useState<string>();
+  const [actionError, setActionError] = useState<string>();
 
   console.log(data);
   return (
@@ -40,22 +44,47 @@ const ManagePositionsPage = () => {
                   <td className="h-8">{value}</td>
                   <td className="h-8">{shortcut}</td>
                   <td className="h-8 flex flex-row-reverse">
-                    <img
+                    <button
+                      type="button"
+                      disabled={removingName !== undefined}
                       onClick={async () => {
-                        // TODO: use return value instead of retry
-                        await removePosition(name);
-                        retry();
+                        setRemovingName(name);
+                        setActionError(undefined);
+                        try {
+                          await removePosition(name);
+                          retry();
+                        } catch (removeError) {
+                          setActionError(
+                            `Could not remove position: ${String(removeError)}`
+                          );
+                        } finally {
+                          setRemovingName(undefined);
+                        }
                       }}
-                      className="cursor-pointer"
-                      src={removeIcon}
-                      alt="Remove position icon"
-                    />
+                      className="disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <img
+                        className="cursor-pointer"
+                        src={removeIcon}
+                        alt={`Remove ${name}`}
+                      />
+                    </button>
                   </td>
                 </tbody>
               ))
-            : "Loading..."}
+            : loading
+            ? "Loading..."
+            : null}
         </table>
       </div>
+      {loadError ? (
+        <div className="my-2 text-red-500">
+          Could not load positions: {String(loadError)}
+        </div>
+      ) : null}
+      {actionError ? (
+        <div className="my-2 text-red-500">{actionError}</div>
+      ) : null}
       <div className="w-full flex justify-between mt-3">
         <Link to="/new-position">
           <Button>New position</Button>

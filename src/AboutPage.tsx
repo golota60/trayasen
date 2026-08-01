@@ -18,14 +18,27 @@ const AboutPage = () => {
   const [isAutostartEnabled, setAutostartEnabled] = useState<
     boolean | undefined
   >();
+  const [isUpdatingAutostart, setUpdatingAutostart] = useState(false);
+  const [isResetting, setResetting] = useState(false);
+  const [actionError, setActionError] = useState<string>();
 
-  const [upstreamAutostart] = useSimpleAsync(isEnabled);
+  const [upstreamAutostart, { error: autostartReadError }] =
+    useSimpleAsync(isEnabled);
 
   useEffect(() => {
     if (isAutostartEnabled === undefined) {
       setAutostartEnabled(upstreamAutostart);
     }
   }, [isAutostartEnabled, upstreamAutostart]);
+
+  useEffect(() => {
+    if (autostartReadError) {
+      console.error("Could not read autostart state", autostartReadError);
+      setActionError(
+        `Could not read autostart state: ${String(autostartReadError)}`
+      );
+    }
+  }, [autostartReadError]);
 
   return (
     <>
@@ -39,16 +52,26 @@ const AboutPage = () => {
         </h1>
         <div className="items-top flex space-x-2 mb-3">
           <Checkbox
-            onCheckedChange={() => {
-              if (isAutostartEnabled) {
-                disable();
-                setAutostartEnabled(false);
-              } else {
-                enable();
-                setAutostartEnabled(true);
+            onCheckedChange={async () => {
+              setUpdatingAutostart(true);
+              setActionError(undefined);
+              try {
+                if (isAutostartEnabled) {
+                  await disable();
+                  setAutostartEnabled(false);
+                } else {
+                  await enable();
+                  setAutostartEnabled(true);
+                }
+              } catch (error) {
+                console.error("Could not update autostart state", error);
+                setActionError(`Could not update autostart: ${String(error)}`);
+              } finally {
+                setUpdatingAutostart(false);
               }
             }}
             checked={isAutostartEnabled || false}
+            disabled={isUpdatingAutostart}
             id="autostart-toggle"
           />
           <div className="grid gap-1.5 leading-none">
@@ -74,12 +97,21 @@ const AboutPage = () => {
           <div className="flex justify-between mb-3">
             <Button
               className="mr-2"
-              onClick={() => {
-                removeConfig();
-                relaunch();
+              disabled={isResetting}
+              onClick={async () => {
+                setResetting(true);
+                setActionError(undefined);
+                try {
+                  await removeConfig();
+                  await relaunch();
+                } catch (error) {
+                  console.error("Could not reset and relaunch Trayasen", error);
+                  setActionError(`Could not reset config: ${String(error)}`);
+                  setResetting(false);
+                }
               }}
             >
-              Reset config & restart the app
+              {isResetting ? "Resetting..." : "Reset config & restart the app"}
             </Button>
             <TooltipProvider>
               <Tooltip delayDuration={100}>
@@ -92,6 +124,9 @@ const AboutPage = () => {
               </Tooltip>
             </TooltipProvider>
           </div>
+          {actionError ? (
+            <div className="mb-3 text-red-500">{actionError}</div>
+          ) : null}
         </div>
         <h1
           className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0

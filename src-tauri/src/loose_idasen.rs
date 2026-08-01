@@ -4,6 +4,7 @@
 */
 use std::{
     cmp::Ordering,
+    future::Future,
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -42,10 +43,22 @@ pub struct PositionSpeed {
     pub speed: i16,
 }
 
-pub fn bytes_to_position_speed(bytes: &[u8]) -> PositionSpeed {
-    let position = u16::from_le_bytes([bytes[0], bytes[1]]) + MIN_HEIGHT;
+pub fn bytes_to_position_speed(bytes: &[u8]) -> Result<PositionSpeed, BtError> {
+    const POSITION_PAYLOAD_LENGTH: usize = 4;
+    if bytes.len() < POSITION_PAYLOAD_LENGTH {
+        return Err(BtError::PositionPayloadTooShort {
+            expected: POSITION_PAYLOAD_LENGTH,
+            actual: bytes.len(),
+        });
+    }
+
+    let raw_position = u16::from_le_bytes([bytes[0], bytes[1]]);
+    let position = raw_position
+        .checked_add(MIN_HEIGHT)
+        .filter(|position| (MIN_HEIGHT..=MAX_HEIGHT).contains(position))
+        .ok_or(BtError::PositionPayloadOutOfRange { raw_position })?;
     let speed = i16::from_le_bytes([bytes[2], bytes[3]]);
-    PositionSpeed { position, speed }
+    Ok(PositionSpeed { position, speed })
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,6 +77,14 @@ pub enum BtError {
 
     #[error("Bluetooth characteristics not found: '{}'.", _0)]
     CharacteristicsNotFound(String),
+
+    #[error(
+        "Bluetooth position payload too short: expected at least {expected} bytes, got {actual}."
+    )]
+    PositionPayloadTooShort { expected: usize, actual: usize },
+
+    #[error("Bluetooth position payload is outside the supported desk height range: raw position {raw_position}.")]
+    PositionPayloadOutOfRange { raw_position: u16 },
 
     #[error("Desired position has to be between MIN_HEIGHT and MAX_HEIGHT.")]
     PositionNotInRange,
@@ -113,8 +134,8 @@ pub async fn setup_bt_desk_device(
     }
     println!("After service discover...");
 
-    let control_characteristic = get_control_characteristic(device).await;
-    let position_characteristic = get_position_characteristic(device).await;
+    let control_characteristic = get_control_characteristic(device).await?;
+    let position_characteristic = get_position_characteristic(device).await?;
 
     if device.subscribe(&position_characteristic).await.is_err() {
         println!("Error while subscribing...");
@@ -147,60 +168,76 @@ async fn get_list_of_desks_once(
     }
 }
 
-pub async fn get_list_of_desks(
-    loc_name: &Option<String>,
-) -> Result<Vec<ExpandedPeripheral>, BtError> {
-    // try 3 times before erroring
-    let mut desks;
-    for _loop_iter in 0..3 {
-        desks = get_list_of_desks_once(loc_name).await;
-
-        if desks.is_ok() {
-            return desks;
-            // break;
+async fn retry_not_found<T, F, Fut>(max_attempts: usize, mut operation: F) -> Result<T, BtError>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, BtError>>,
+{
+    let max_attempts = max_attempts.max(1);
+    for attempt in 0..max_attempts {
+        match operation().await {
+            Err(BtError::CannotFindDevice) if attempt + 1 < max_attempts => continue,
+            result => return result,
         }
     }
 
-    Err(BtError::CannotFindDevice)
+    unreachable!("at least one retry attempt always runs")
+}
+
+pub async fn get_list_of_desks(
+    loc_name: &Option<String>,
+) -> Result<Vec<ExpandedPeripheral>, BtError> {
+    retry_not_found(3, || get_list_of_desks_once(loc_name)).await
 }
 
 // Getting characteristics every time is wasteful
 // TODO: Try to refactor this - maybe chuck this into shared tauri state?
-pub async fn get_control_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
-    desk.characteristics()
-        .iter()
-        .find(|c| c.uuid == CONTROL_UUID)
-        .ok_or_else(|| BtError::CharacteristicsNotFound("Control".to_string()))
-        .expect("err while getting characteristic")
-        .clone()
+fn find_characteristic<'a>(
+    characteristics: impl IntoIterator<Item = &'a Characteristic>,
+    uuid: Uuid,
+    name: &str,
+) -> Result<Characteristic, BtError> {
+    characteristics
+        .into_iter()
+        .find(|characteristic| characteristic.uuid == uuid)
+        .cloned()
+        .ok_or_else(|| BtError::CharacteristicsNotFound(name.to_string()))
 }
 
-pub async fn get_position_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
-    desk.characteristics()
-        .iter()
-        .find(|c| c.uuid == POSITION_UUID)
-        .ok_or_else(|| BtError::CharacteristicsNotFound("Position".to_string()))
-        .expect("Error while getting position characteristic")
-        .clone()
+pub async fn get_control_characteristic(
+    desk: &impl ApiPeripheral,
+) -> Result<Characteristic, BtError> {
+    let characteristics = desk.characteristics();
+    find_characteristic(characteristics.iter(), CONTROL_UUID, "Control")
 }
 
-async fn up(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
-    let control_characteristic = get_control_characteristic(desk).await;
+pub async fn get_position_characteristic(
+    desk: &impl ApiPeripheral,
+) -> Result<Characteristic, BtError> {
+    let characteristics = desk.characteristics();
+    find_characteristic(characteristics.iter(), POSITION_UUID, "Position")
+}
+
+async fn up(desk: &impl ApiPeripheral) -> Result<(), BtError> {
+    let control_characteristic = get_control_characteristic(desk).await?;
 
     desk.write(&control_characteristic, &UP, WriteType::WithoutResponse)
-        .await
+        .await?;
+    Ok(())
 }
 
-async fn down(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
-    let control_characteristic = get_control_characteristic(desk).await;
+async fn down(desk: &impl ApiPeripheral) -> Result<(), BtError> {
+    let control_characteristic = get_control_characteristic(desk).await?;
     desk.write(&control_characteristic, &DOWN, WriteType::WithoutResponse)
-        .await
+        .await?;
+    Ok(())
 }
 
-async fn stop(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
-    let control_characteristic = get_control_characteristic(desk).await;
+async fn stop(desk: &impl ApiPeripheral) -> Result<(), BtError> {
+    let control_characteristic = get_control_characteristic(desk).await?;
     desk.write(&control_characteristic, &STOP, WriteType::WithoutResponse)
-        .await
+        .await?;
+    Ok(())
 }
 
 pub async fn move_to_target(
@@ -251,16 +288,49 @@ pub async fn get_position(desk: &impl ApiPeripheral) -> Result<u16, BtError> {
 }
 
 pub async fn get_position_and_speed(desk: &impl ApiPeripheral) -> Result<PositionSpeed, BtError> {
-    let position_characteristic = get_position_characteristic(desk).await;
+    let position_characteristic = get_position_characteristic(desk).await?;
 
     let value = desk.read(&position_characteristic).await?;
-    Ok(bytes_to_position_speed(&value))
+    bytes_to_position_speed(&value)
 }
 
 /// Peripheral expanded with it's name(we treat it as an ID)
 pub struct ExpandedPeripheral {
     pub perp: PlatformPeripheral,
     pub name: String,
+}
+
+fn collect_adapter_results<T>(
+    jobs: impl IntoIterator<Item = Result<Vec<T>, BtError>>,
+) -> Result<Vec<T>, BtError> {
+    let mut items = Vec::new();
+    let mut first_error = None;
+    let mut successful_adapter = false;
+
+    for job in jobs {
+        match job {
+            Ok(mut adapter_items) => {
+                successful_adapter = true;
+                items.append(&mut adapter_items);
+            }
+            Err(error) => {
+                eprintln!("Bluetooth adapter scan failed: {error}");
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+            }
+        }
+    }
+
+    if !items.is_empty() {
+        Ok(items)
+    } else if let Some(error) = first_error {
+        Err(error)
+    } else if successful_adapter {
+        Ok(items)
+    } else {
+        Err(BtError::CannotFindDevice)
+    }
 }
 
 pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeripheral>, BtError> {
@@ -272,10 +342,7 @@ pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeriphera
         jobs.push(search_adapter_for_desks(adapter, loc_name.clone()).await);
     }
 
-    let mut desks = Vec::new();
-    for job in jobs {
-        desks.append(&mut job.unwrap());
-    }
+    let desks = collect_adapter_results(jobs)?;
 
     if desks.is_empty() {
         Err(BtError::CannotFindDevice)
@@ -340,7 +407,7 @@ pub struct PotentialDesk {
 pub async fn get_available_desks_to_connect(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<PotentialDesk>, String> {
-    let config = config_utils::get_or_create_config(&app_handle);
+    let config = config_utils::get_or_create_config(&app_handle)?;
     let desk_list = get_list_of_desks(&config.local_name).await;
 
     match desk_list {
@@ -371,20 +438,17 @@ pub async fn get_available_desks_to_connect(
 
 // TODO: UPDATE THE DESK INSTANCE MUTEX EVERY TIME YOU USE THIS FUNCTION HERE OTHERWISE IT WILL BREAK
 // AS WE WILL HAVE DESYNC OF ACTUAL DESK AND CONNECTED ONE
-pub async fn connect_to_desk_by_name_internal(
-    app_handle: &tauri::AppHandle,
-    name: String,
-) -> Result<PlatformPeripheral, BtError> {
+pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {
     let desk_to_connect = get_list_of_desks(&Some(name.clone())).await?;
     let desk_to_connect = desk_to_connect
         .into_iter()
         .next()
-        .expect("Error while getting a desk to connect to");
+        .ok_or(BtError::CannotFindDevice)?;
     let desk_to_connect = desk_to_connect.perp;
     println!("after desk to connect!");
 
-    config_utils::save_local_name(app_handle, name);
-    println!("saved desk!");
+    // Persisting the selected desk is intentionally owned by the user-initiated command after
+    // this connection and protocol setup both succeed. Startup reconnection stays read-only.
     // TODO: try to use the ACTUAL connected bt device, instead of the pre-connected device instance
     // Challenge here is that we cannot operate on `impl ApiPeripheral`, cause it's not sized.
     // Maybe it should be boxed/arced?
@@ -409,12 +473,67 @@ mod tests {
     #[test]
     fn decodes_position_and_speed_without_bluetooth_hardware() {
         assert_eq!(
-            bytes_to_position_speed(&[0x34, 0x12, 0xfe, 0xff]),
+            bytes_to_position_speed(&[0x34, 0x12, 0xfe, 0xff]).unwrap(),
             PositionSpeed {
                 position: MIN_HEIGHT + 0x1234,
                 speed: -2,
             }
         );
+    }
+
+    #[test]
+    fn position_payload_accepts_supported_boundaries() {
+        let maximum_offset = MAX_HEIGHT - MIN_HEIGHT;
+
+        assert_eq!(
+            bytes_to_position_speed(&[0, 0, 0, 0]).unwrap().position,
+            MIN_HEIGHT
+        );
+        assert_eq!(
+            bytes_to_position_speed(&[maximum_offset as u8, (maximum_offset >> 8) as u8, 0, 0,])
+                .unwrap()
+                .position,
+            MAX_HEIGHT
+        );
+    }
+
+    #[test]
+    fn raw_maximum_position_payload_is_a_recoverable_error() {
+        assert!(matches!(
+            bytes_to_position_speed(&[0xff, 0xff, 0, 0]),
+            Err(BtError::PositionPayloadOutOfRange {
+                raw_position: u16::MAX
+            })
+        ));
+    }
+
+    #[test]
+    fn position_payload_above_supported_range_is_a_recoverable_error() {
+        let invalid_offset = MAX_HEIGHT - MIN_HEIGHT + 1;
+
+        assert!(matches!(
+            bytes_to_position_speed(&[
+                invalid_offset as u8,
+                (invalid_offset >> 8) as u8,
+                0,
+                0,
+            ]),
+            Err(BtError::PositionPayloadOutOfRange { raw_position })
+                if raw_position == invalid_offset
+        ));
+    }
+
+    #[test]
+    fn short_position_payload_is_a_recoverable_error() {
+        let result = bytes_to_position_speed(&[0x34, 0x12, 0xfe]);
+
+        assert!(matches!(
+            result,
+            Err(BtError::PositionPayloadTooShort {
+                expected: 4,
+                actual: 3
+            })
+        ));
     }
 
     #[test]
@@ -427,5 +546,137 @@ mod tests {
             BtError::PositionNotInRange.to_string(),
             "Desired position has to be between MIN_HEIGHT and MAX_HEIGHT."
         );
+    }
+
+    #[test]
+    fn missing_characteristics_are_recoverable_errors() {
+        let result = find_characteristic(
+            std::iter::empty::<&Characteristic>(),
+            CONTROL_UUID,
+            "Control",
+        );
+
+        assert!(matches!(
+            result,
+            Err(BtError::CharacteristicsNotFound(name)) if name == "Control"
+        ));
+    }
+
+    #[test]
+    fn mixed_empty_and_error_returns_the_concrete_error() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
+            Ok(vec![]),
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "adapter unavailable".to_string(),
+            ))),
+        ];
+
+        let error = collect_adapter_results(jobs).unwrap_err();
+
+        assert!(error.to_string().contains("adapter unavailable"));
+    }
+
+    #[test]
+    fn successful_adapter_results_survive_other_adapter_errors() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
+            Ok(vec![1]),
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "adapter unavailable".to_string(),
+            ))),
+            Ok(vec![2]),
+        ];
+
+        assert_eq!(collect_adapter_results(jobs).unwrap(), vec![1, 2]);
+    }
+
+    #[test]
+    fn all_empty_adapter_results_return_empty() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![Ok(vec![]), Ok(vec![])];
+
+        assert_eq!(collect_adapter_results(jobs).unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn no_adapter_results_return_not_found() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![];
+
+        assert!(matches!(
+            collect_adapter_results(jobs),
+            Err(BtError::CannotFindDevice)
+        ));
+    }
+
+    #[test]
+    fn all_adapter_errors_return_the_first_concrete_error() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "first adapter unavailable".to_string(),
+            ))),
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "second adapter unavailable".to_string(),
+            ))),
+        ];
+
+        let error = collect_adapter_results(jobs).unwrap_err();
+
+        assert!(error.to_string().contains("first adapter unavailable"));
+        assert!(!error.to_string().contains("second adapter unavailable"));
+    }
+
+    #[tokio::test]
+    async fn not_found_retries_exactly_three_times_before_exhaustion() {
+        let attempts = std::cell::Cell::new(0);
+
+        let result: Result<Vec<u8>, BtError> = retry_not_found(3, || {
+            attempts.set(attempts.get() + 1);
+            async { Err(BtError::CannotFindDevice) }
+        })
+        .await;
+
+        assert_eq!(attempts.get(), 3);
+        assert!(matches!(result, Err(BtError::CannotFindDevice)));
+    }
+
+    #[tokio::test]
+    async fn not_found_retry_can_succeed_on_the_final_attempt() {
+        let attempts = std::cell::Cell::new(0);
+
+        let result = retry_not_found(3, || {
+            attempts.set(attempts.get() + 1);
+            let attempt = attempts.get();
+            async move {
+                if attempt < 3 {
+                    Err(BtError::CannotFindDevice)
+                } else {
+                    Ok(vec![42])
+                }
+            }
+        })
+        .await;
+
+        assert_eq!(attempts.get(), 3);
+        assert_eq!(result.unwrap(), vec![42]);
+    }
+
+    #[tokio::test]
+    async fn terminal_backend_error_is_not_replaced_by_not_found() {
+        let attempts = std::cell::Cell::new(0);
+
+        let result: Result<Vec<u8>, BtError> = retry_not_found(3, || {
+            attempts.set(attempts.get() + 1);
+            async {
+                Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                    "permission denied".to_string(),
+                )))
+            }
+        })
+        .await;
+
+        assert_eq!(attempts.get(), 1);
+        assert!(matches!(result, Err(BtError::BtlePlugError(_))));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("permission denied"));
     }
 }

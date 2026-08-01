@@ -61,6 +61,7 @@ const NewPositionPage = () => {
   const [name, setName] = useState<string>("");
   const [value, setValue] = useState<string>("7200");
   const [error, setError] = useState<string | undefined>();
+  const [isSubmitting, setSubmitting] = useState(false);
   const [shortcutValue, setShortcutValue] = useState<string>("");
   console.log(shortcutValue);
   const [keystrokeText, setKeystrokeText] = useState<
@@ -207,20 +208,26 @@ const NewPositionPage = () => {
             if (locErr) {
               setError(locErr);
             } else {
-              // try to create an elem
-              let resp = await createNewElem(name, value, shortcutValue);
+              setSubmitting(true);
+              try {
+                const resp = await createNewElem(name, value, shortcutValue);
 
-              if (resp === "duplicate") {
-                setError(ErrorCodes.duplicate);
-              } else {
-                // exit cause shits been created
-                console.log("closing...");
-                appWindow.close();
+                if (resp === "duplicate") {
+                  setError(ErrorCodes.duplicate);
+                } else {
+                  console.log("closing...");
+                  await appWindow.close();
+                }
+              } catch (createError) {
+                setError(`Could not save position: ${String(createError)}`);
+              } finally {
+                setSubmitting(false);
               }
             }
           }}
+          disabled={isSubmitting}
         >
-          Add
+          {isSubmitting ? "Adding..." : "Add"}
         </Button>
       </div>
     </>

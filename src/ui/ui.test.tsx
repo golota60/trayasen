@@ -182,7 +182,9 @@ describe("shared UI", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Manage positions" }).closest("header")
+      screen
+        .getByRole("heading", { name: "Manage positions" })
+        .closest("header")
     ).not.toBeNull();
     expect(screen.getByText("Page content").closest("main")).not.toBeNull();
   });

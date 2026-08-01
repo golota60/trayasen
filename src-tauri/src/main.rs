@@ -104,7 +104,7 @@ mod window_tests {
     fn default_window_uses_compact_utility_size() {
         assert_eq!(
             (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
-            (800.0, 600.0)
+            (1200.0, 800.0)
         );
     }
 }

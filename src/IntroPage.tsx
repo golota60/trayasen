@@ -34,9 +34,17 @@ const IntroPage = () => {
         Something went wrong.{" "}
         <div>
           <Button
-            onClick={() => {
-              removeConfig();
-              relaunch();
+            onClick={async () => {
+              try {
+                await removeConfig();
+                await relaunch();
+              } catch (resetError) {
+                console.error(
+                  "Could not reset and relaunch Trayasen",
+                  resetError
+                );
+                setDeskError(String(resetError));
+              }
             }}
           >
             Reset config & restart the app

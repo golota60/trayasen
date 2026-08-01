@@ -51,9 +51,17 @@ const ReturningUserErrorPage = () => {
       <div>or</div>
       <div>
         <Button
-          onClick={() => {
-            resetDesk();
-            relaunch();
+          onClick={async () => {
+            try {
+              await resetDesk();
+              await relaunch();
+            } catch (resetError) {
+              console.error(
+                "Could not reset desk and relaunch Trayasen",
+                resetError
+              );
+              setError(String(resetError));
+            }
           }}
         >
           Reset app and desk name & open the connect intro menu

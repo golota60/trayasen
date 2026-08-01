@@ -76,6 +76,9 @@ pub enum BtError {
 
     #[error("btleplug error: {0}")]
     BtlePlugError(#[from] btleplug::Error),
+
+    #[error("Configuration error: {0}")]
+    Config(String),
 }
 
 pub struct ConnectedBtDevice<T>
@@ -340,7 +343,7 @@ pub struct PotentialDesk {
 pub async fn get_available_desks_to_connect(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<PotentialDesk>, String> {
-    let config = config_utils::get_or_create_config(&app_handle);
+    let config = config_utils::get_or_create_config(&app_handle)?;
     let desk_list = get_list_of_desks(&config.local_name).await;
 
     match desk_list {
@@ -379,11 +382,11 @@ pub async fn connect_to_desk_by_name_internal(
     let desk_to_connect = desk_to_connect
         .into_iter()
         .next()
-        .expect("Error while getting a desk to connect to");
+        .ok_or(BtError::CannotFindDevice)?;
     let desk_to_connect = desk_to_connect.perp;
     println!("after desk to connect!");
 
-    config_utils::save_local_name(app_handle, name);
+    config_utils::save_local_name(app_handle, name).map_err(BtError::Config)?;
     println!("saved desk!");
     // TODO: try to use the ACTUAL connected bt device, instead of the pre-connected device instance
     // Challenge here is that we cannot operate on `impl ApiPeripheral`, cause it's not sized.

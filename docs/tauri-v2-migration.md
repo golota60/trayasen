@@ -195,6 +195,15 @@ The default capability grants only the required window close/minimize/toggle-max
 - About links now use the official Tauri v2 opener plugin. The capability enables only `open_url` and scopes it to the three URLs rendered by the About page; it does not grant file/path opening or arbitrary URL access.
 - `npm audit` currently reports 0 vulnerabilities for the committed npm dependency graph.
 
+## Review-Round Follow-up Fixes
+
+- Tray requests reuse the existing `main` webview window, safely navigate it with JSON-serialized route data, then show, unminimize, and focus it. A `main` window is created only when none exists, and window errors are logged rather than panicking.
+- Config removal/reset calls complete before frontend relaunch. Restart exit requests use Tauri's `RESTART_EXIT_CODE` and bypass tray refresh and `prevent_exit`, preventing the deleted-config restart race.
+- Saved-position tray IDs are namespaced as `position:<name>`, so positions named `about`, `quit`, `add_position`, or another fixed action remain independently selectable. Visible position names and the persisted config format are unchanged.
+- Config creation now creates a missing data-directory parent. Missing files create defaults, while malformed configs and other I/O failures are reported without overwriting the source file. Reset, deletion, startup discovery, and config writes return recoverable errors.
+- Tray/global-shortcut movement failures and unavailable desk state are logged instead of panicking. Autostart mutations complete before UI state changes, and autostart/opener/reset failures are logged or displayed by the existing error UI.
+- Generated `.pi-subagents/` orchestration artifacts are ignored at the repository root.
+
 Residual verification limits are unchanged for physical desk movement and unavailable interactive GUI automation. The About link handler, opener registration, exact URL scopes, frontend compilation, capability generation, app packaging, and bounded app launch were validated; actually clicking the links was not attempted because it would open the host browser from this non-interactive run.
 
 ## Intentional Changes
@@ -218,7 +227,7 @@ Residual verification limits are unchanged for physical desk movement and unavai
 - Change: The Rust runtime uses v2 webview-window, menu, tray, global-shortcut, path, process, and autostart APIs.
   - Reason: The v1 runtime types and managers were removed or replaced in Tauri v2.
   - User impact: Startup, background operation, tray actions, saved-position actions, and shortcuts are intended to remain the same.
-  - Verification: `cargo check --locked`, the six passing hermetic Rust tests, the bounded macOS launch, and source inspection of stable tray action IDs.
+  - Verification: `cargo check --locked`, the ten passing hermetic Rust tests, the bounded macOS launch, and source inspection of stable tray action IDs.
 - Change: The internal About/Options tray menu ID changed from `about/options` to `about`.
   - Reason: The runtime migration contract uses a stable identifier without a slash, and the menu and handler must agree.
   - User impact: None expected; the visible label remains `About/Options`.
@@ -261,7 +270,7 @@ Automated results:
 - `npm audit`: PASS; 0 vulnerabilities.
 - `source "$HOME/.cargo/env" && cd src-tauri && cargo fmt -- --check`: PASS.
 - `source "$HOME/.cargo/env" && cd src-tauri && cargo check --locked`: PASS; only the existing dead-code warning for four `ConnectedBtDevice` fields was emitted.
-- `source "$HOME/.cargo/env" && cd src-tauri && cargo test --locked`: PASS; 6 passed, 0 failed, 0 ignored. The suite contains only pure tests and does not initialize Bluetooth, BlueZ, or D-Bus.
+- `source "$HOME/.cargo/env" && cd src-tauri && cargo test --locked`: PASS; 10 passed, 0 failed, 0 ignored. The suite contains only pure tests and does not initialize Bluetooth, BlueZ, or D-Bus.
 - `source "$HOME/.cargo/env" && npx tauri info`: PASS for project/plugin discovery; it reports the opener Rust and JavaScript packages at 2.5.4. The environment section still notes that full Xcode is not installed, while Xcode Command Line Tools are available.
 - `source "$HOME/.cargo/env" && npm run tauri:build`: application compilation and `.app` bundling PASS, but the all-target command exited 1 while styling the DMG because Finder did not answer the bounded AppleEvent: `execution error: Finder got an error: AppleEvent timed out. (-1712)` followed by `Failed running AppleScript`. This is a packaging-environment blocker, not a compile failure.
 - `source "$HOME/.cargo/env" && npm run tauri:build -- --bundles app`: PASS after the final fixes; produced `src-tauri/target/release/bundle/macos/Trayasen.app` without invoking Finder's DMG styling step. Capability/config generation accepted the scoped opener and start-dragging permissions.
@@ -276,7 +285,7 @@ The earlier packaged app executable was launched directly for 12 seconds with an
 
 The launch created only the isolated `idasen-tray-config.json` containing `{"local_name":null,"saved_positions":[]}`, logged the isolated config path and no-desk state, and completed Bluetooth discovery. It remained alive for the full interval, exited after the deliberate signal, and left no app process. SHA-256 snapshots taken before and after the run confirmed that the real config file and the contents of the real `~/Library/LaunchAgents` directory did not change. No desk connection or movement was requested.
 
-A window-only `screencapture` was attempted against the Core Graphics ID for the 1280×720 setup window, but macOS returned `could not create image from window`; therefore no screenshot is claimed. A read-only accessibility query through System Events also timed out under the non-interactive runner and was terminated, so it was not used to click or inspect tray menu items. An earlier harness attempt that omitted the isolated `Library/Application Support` parent exited with code 134; normal macOS user homes already contain that parent, and corrected isolated launches passed.
+A window-only `screencapture` was attempted against the Core Graphics ID for the 1280×720 setup window, but macOS returned `could not create image from window`; therefore no screenshot is claimed. A read-only accessibility query through System Events also timed out under the non-interactive runner and was terminated, so it was not used to click or inspect tray menu items. An earlier harness attempt that omitted the isolated `Library/Application Support` parent exited with code 134. Config initialization now creates missing parent directories, with focused unit coverage, so isolated or newly provisioned homes no longer rely on that directory already existing.
 
 | # | Smoke item | Status classification | Evidence / limitation | Precise follow-up |
 | --- | --- | --- | --- | --- |

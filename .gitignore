@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 .worktrees
+/.pi-subagents/
 dist
 dist-ssr
 *.local

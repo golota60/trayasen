@@ -18,14 +18,22 @@ const AboutPage = () => {
   const [isAutostartEnabled, setAutostartEnabled] = useState<
     boolean | undefined
   >();
+  const [isUpdatingAutostart, setUpdatingAutostart] = useState(false);
 
-  const [upstreamAutostart] = useSimpleAsync(isEnabled);
+  const [upstreamAutostart, { error: autostartReadError }] =
+    useSimpleAsync(isEnabled);
 
   useEffect(() => {
     if (isAutostartEnabled === undefined) {
       setAutostartEnabled(upstreamAutostart);
     }
   }, [isAutostartEnabled, upstreamAutostart]);
+
+  useEffect(() => {
+    if (autostartReadError) {
+      console.error("Could not read autostart state", autostartReadError);
+    }
+  }, [autostartReadError]);
 
   return (
     <>
@@ -39,16 +47,24 @@ const AboutPage = () => {
         </h1>
         <div className="items-top flex space-x-2 mb-3">
           <Checkbox
-            onCheckedChange={() => {
-              if (isAutostartEnabled) {
-                disable();
-                setAutostartEnabled(false);
-              } else {
-                enable();
-                setAutostartEnabled(true);
+            onCheckedChange={async () => {
+              setUpdatingAutostart(true);
+              try {
+                if (isAutostartEnabled) {
+                  await disable();
+                  setAutostartEnabled(false);
+                } else {
+                  await enable();
+                  setAutostartEnabled(true);
+                }
+              } catch (error) {
+                console.error("Could not update autostart state", error);
+              } finally {
+                setUpdatingAutostart(false);
               }
             }}
             checked={isAutostartEnabled || false}
+            disabled={isUpdatingAutostart}
             id="autostart-toggle"
           />
           <div className="grid gap-1.5 leading-none">
@@ -74,9 +90,13 @@ const AboutPage = () => {
           <div className="flex justify-between mb-3">
             <Button
               className="mr-2"
-              onClick={() => {
-                removeConfig();
-                relaunch();
+              onClick={async () => {
+                try {
+                  await removeConfig();
+                  await relaunch();
+                } catch (error) {
+                  console.error("Could not reset and relaunch Trayasen", error);
+                }
               }}
             >
               Reset config & restart the app

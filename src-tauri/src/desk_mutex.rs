@@ -5,13 +5,17 @@ use tauri::Manager;
 
 use crate::{loose_idasen::BtError, TauriSharedDesk};
 
-pub fn get_desk_from_app_state(app_handle: &tauri::AppHandle) -> PlatformPeripheral {
+pub fn get_desk_from_app_state(
+    app_handle: &tauri::AppHandle,
+) -> Result<PlatformPeripheral, String> {
     let desk = app_handle.state::<TauriSharedDesk>();
-    let desk = desk.0.lock().expect("Error while unwrapping shared desk");
     let desk = desk
-        .as_ref()
-        .expect("Desk should have been defined at this point");
-    desk.clone()
+        .0
+        .lock()
+        .map_err(|_| "Could not lock shared desk state".to_string())?;
+    desk.as_ref()
+        .cloned()
+        .map_err(|error| format!("Desk is not ready: {error}"))
 }
 
 pub fn assign_desk_to_mutex(

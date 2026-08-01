@@ -1,9 +1,9 @@
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::{
-    fs::{self, read_to_string, remove_file, OpenOptions},
-    io::Write,
-    path::PathBuf,
+    fs,
+    io::ErrorKind,
+    path::{Path, PathBuf},
 };
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
@@ -12,6 +12,7 @@ use tauri::{
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 static CONFIG_FILE_NAME: &str = "idasen-tray-config.json";
+const POSITION_MENU_ID_PREFIX: &str = "position:";
 
 pub const QUIT_ID: &str = "quit";
 pub const ABOUT_ID: &str = "about";
@@ -37,65 +38,79 @@ fn config_path_in(data_dir: PathBuf) -> PathBuf {
     data_dir.join(CONFIG_FILE_NAME)
 }
 
-fn get_config_path(app_handle: &AppHandle) -> PathBuf {
-    config_path_in(
-        app_handle
-            .path()
-            .data_dir()
-            .expect("Error while unwrapping data directory"),
-    )
+fn get_config_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    app_handle
+        .path()
+        .data_dir()
+        .map(config_path_in)
+        .map_err(|error| format!("Could not resolve the config data directory: {error}"))
 }
 
-// TODO: use get_config here? or merge two funcs together?
-// For FIRST loading
-pub fn get_or_create_config(app_handle: &AppHandle) -> ConfigData {
-    let config_path = get_config_path(app_handle);
-
-    println!("Config path: {:?}", config_path);
-
-    match read_to_string(&config_path) {
-        // Config exists
-        Ok(s) => from_str::<ConfigData>(s.as_str()).expect("Error while parsing config file"),
-        // Config does not exist. Create a dummy one.
-        // Check for different errors?
-        Err(_) => {
-            let new_config = ConfigData {
-                local_name: None,
-                saved_positions: vec![],
-            };
-            let stringified_config = to_string::<ConfigData>(&new_config).unwrap();
-            // Using OpenOptions cause it's the easiest to create a file with.
-            let mut conf_file = OpenOptions::new()
-                .write(true)
-                .read(true)
-                .create(true)
-                .open(&config_path)
-                .expect("Error while creating a new config");
-
-            conf_file.write_all(stringified_config.as_bytes()).unwrap();
-
-            new_config
-        }
+fn empty_config() -> ConfigData {
+    ConfigData {
+        local_name: None,
+        saved_positions: vec![],
     }
 }
 
-// Generally this function should never error, cause all the same operations have been done miliseconds before.
-pub fn save_local_name(app_handle: &AppHandle, new_local_name: String) {
-    let config_path = get_config_path(app_handle);
-    let old_conf_file = read_to_string(&config_path).expect("Opening a config to save MAC Address");
-    let mut mut_conf_file =
-        from_str::<ConfigData>(&old_conf_file).expect("Parsing a config to save MAC Address");
+fn parse_config(path: &Path, contents: &str) -> Result<ConfigData, String> {
+    from_str::<ConfigData>(contents)
+        .map_err(|error| format!("Could not parse config `{}`: {error}", path.display()))
+}
 
-    mut_conf_file.local_name = Some(new_local_name);
+fn read_config_at(path: &Path) -> Result<ConfigData, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("Could not read config `{}`: {error}", path.display()))?;
+    parse_config(path, &contents)
+}
 
-    let stringified_new_config = to_string::<ConfigData>(&mut_conf_file).unwrap();
-    fs::write(config_path, stringified_new_config)
-        .expect("Saving a config after parsing a MAC Address");
+fn write_config_at(path: &Path, config: &ConfigData) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("Config path `{}` has no parent directory", path.display()))?;
+    fs::create_dir_all(parent).map_err(|error| {
+        format!(
+            "Could not create config directory `{}`: {error}",
+            parent.display()
+        )
+    })?;
+    let contents =
+        to_string(config).map_err(|error| format!("Could not serialize config: {error}"))?;
+    fs::write(path, contents)
+        .map_err(|error| format!("Could not write config `{}`: {error}", path.display()))
+}
+
+fn get_or_create_config_at(path: &Path) -> Result<ConfigData, String> {
+    match fs::read_to_string(path) {
+        Ok(contents) => parse_config(path, &contents),
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            let config = empty_config();
+            write_config_at(path, &config)?;
+            Ok(config)
+        }
+        Err(error) => Err(format!(
+            "Could not read config `{}`: {error}",
+            path.display()
+        )),
+    }
+}
+
+pub fn get_or_create_config(app_handle: &AppHandle) -> Result<ConfigData, String> {
+    let config_path = get_config_path(app_handle)?;
+    println!("Config path: {:?}", config_path);
+    get_or_create_config_at(&config_path)
+}
+
+pub fn save_local_name(app_handle: &AppHandle, new_local_name: String) -> Result<(), String> {
+    let config_path = get_config_path(app_handle)?;
+    let mut config = read_config_at(&config_path)?;
+    config.local_name = Some(new_local_name);
+    write_config_at(&config_path, &config)
 }
 
 #[tauri::command]
-pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigData {
-    let mut conf = get_config(app_handle.clone());
+pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> Result<ConfigData, String> {
+    let mut conf = get_config(app_handle.clone())?;
 
     let elem_to_unregister = conf.saved_positions.iter().find(|pos| pos_name == pos.name);
 
@@ -112,51 +127,51 @@ pub fn remove_position(app_handle: tauri::AppHandle, pos_name: &str) -> ConfigDa
     }
 
     conf.saved_positions.retain(|pos| pos.name != pos_name);
-
-    update_config(&app_handle, &conf);
-    conf
+    update_config(&app_handle, &conf)?;
+    Ok(conf)
 }
 
 #[tauri::command]
-pub fn get_config(app_handle: tauri::AppHandle) -> ConfigData {
-    let config_path = get_config_path(&app_handle);
-
-    let old_conf_file = read_to_string(&config_path).expect("Opening a config");
-    from_str::<ConfigData>(&old_conf_file).expect("Parsing opened config to struct")
+pub fn get_config(app_handle: tauri::AppHandle) -> Result<ConfigData, String> {
+    let config_path = get_config_path(&app_handle)?;
+    read_config_at(&config_path)
 }
 
-pub fn update_config(app_handle: &AppHandle, updated_config: &ConfigData) {
-    let config_path = get_config_path(app_handle);
-
-    let stringified_new_config = to_string::<ConfigData>(updated_config).unwrap();
-    fs::write(config_path, stringified_new_config)
-        .expect("Saving a config after updating a config");
+pub fn update_config(app_handle: &AppHandle, updated_config: &ConfigData) -> Result<(), String> {
+    let config_path = get_config_path(app_handle)?;
+    write_config_at(&config_path, updated_config)
 }
 
 #[tauri::command]
-pub fn remove_config(app_handle: tauri::AppHandle) {
-    let config_path = get_config_path(&app_handle);
-
-    let _ = remove_file(config_path);
+pub fn remove_config(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let config_path = get_config_path(&app_handle)?;
+    match fs::remove_file(&config_path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "Could not remove config `{}`: {error}",
+            config_path.display()
+        )),
+    }
 }
 
 #[tauri::command]
-pub fn reset_desk(app_handle: tauri::AppHandle) {
-    let config_path = get_config_path(&app_handle);
-
-    let config =
-        read_to_string(&config_path).expect("err while reading config while resetting desk");
-    // Config exists
-    let config = from_str::<ConfigData>(config.as_str()).expect("Error while parsing config file");
-
+pub fn reset_desk(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let config_path = get_config_path(&app_handle)?;
+    let config = read_config_at(&config_path)?;
     let updated_config = ConfigData {
         local_name: None,
         saved_positions: config.saved_positions,
     };
+    write_config_at(&config_path, &updated_config)
+}
 
-    let stringified_new_config = to_string::<ConfigData>(&updated_config).unwrap();
-    fs::write(config_path, stringified_new_config)
-        .expect("Saving a config after updating a config");
+pub fn position_menu_id(position_name: &str) -> String {
+    format!("{POSITION_MENU_ID_PREFIX}{position_name}")
+}
+
+pub fn position_name_from_menu_id(menu_id: &str) -> Option<&str> {
+    menu_id.strip_prefix(POSITION_MENU_ID_PREFIX)
 }
 
 pub struct MenuConfigItem {
@@ -173,7 +188,7 @@ pub fn get_menu_items_from_config(
         .map(|position| {
             let position_elem = MenuItem::with_id(
                 app_handle,
-                position.name.clone(),
+                position_menu_id(&position.name),
                 &position.name,
                 true,
                 None::<&str>,
@@ -253,5 +268,53 @@ mod tests {
         assert_eq!(MANAGE_POSITIONS_ID, "manage_positions");
         assert_eq!(ABOUT_ID, "about");
         assert_eq!(QUIT_ID, "quit");
+    }
+
+    #[test]
+    fn position_ids_do_not_collide_with_fixed_actions() {
+        assert_eq!(position_menu_id("about"), "position:about");
+        assert_eq!(position_name_from_menu_id("position:about"), Some("about"));
+        assert_eq!(position_name_from_menu_id(ABOUT_ID), None);
+    }
+
+    #[test]
+    fn missing_config_creates_parent_directories() {
+        let root = std::env::temp_dir().join(format!(
+            "trayasen-config-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let path = root.join("nested").join(CONFIG_FILE_NAME);
+
+        let config = get_or_create_config_at(&path).unwrap();
+
+        assert_eq!(config.local_name, None);
+        assert!(config.saved_positions.is_empty());
+        assert!(path.is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_config_is_reported_without_overwriting_it() {
+        let root = std::env::temp_dir().join(format!(
+            "trayasen-malformed-config-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join(CONFIG_FILE_NAME);
+        fs::write(&path, "not json").unwrap();
+
+        let error = get_or_create_config_at(&path).unwrap_err();
+
+        assert!(error.contains("parse"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "not json");
+        fs::remove_dir_all(root).unwrap();
     }
 }

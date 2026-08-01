@@ -113,8 +113,8 @@ pub async fn setup_bt_desk_device(
     }
     println!("After service discover...");
 
-    let control_characteristic = get_control_characteristic(device).await;
-    let position_characteristic = get_position_characteristic(device).await;
+    let control_characteristic = get_control_characteristic(device).await?;
+    let position_characteristic = get_position_characteristic(device).await?;
 
     if device.subscribe(&position_characteristic).await.is_err() {
         println!("Error while subscribing...");
@@ -166,41 +166,52 @@ pub async fn get_list_of_desks(
 
 // Getting characteristics every time is wasteful
 // TODO: Try to refactor this - maybe chuck this into shared tauri state?
-pub async fn get_control_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
-    desk.characteristics()
-        .iter()
-        .find(|c| c.uuid == CONTROL_UUID)
-        .ok_or_else(|| BtError::CharacteristicsNotFound("Control".to_string()))
-        .expect("err while getting characteristic")
-        .clone()
+fn find_characteristic<'a>(
+    characteristics: impl IntoIterator<Item = &'a Characteristic>,
+    uuid: Uuid,
+    name: &str,
+) -> Result<Characteristic, BtError> {
+    characteristics
+        .into_iter()
+        .find(|characteristic| characteristic.uuid == uuid)
+        .cloned()
+        .ok_or_else(|| BtError::CharacteristicsNotFound(name.to_string()))
 }
 
-pub async fn get_position_characteristic(desk: &impl ApiPeripheral) -> Characteristic {
-    desk.characteristics()
-        .iter()
-        .find(|c| c.uuid == POSITION_UUID)
-        .ok_or_else(|| BtError::CharacteristicsNotFound("Position".to_string()))
-        .expect("Error while getting position characteristic")
-        .clone()
+pub async fn get_control_characteristic(
+    desk: &impl ApiPeripheral,
+) -> Result<Characteristic, BtError> {
+    let characteristics = desk.characteristics();
+    find_characteristic(characteristics.iter(), CONTROL_UUID, "Control")
 }
 
-async fn up(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
-    let control_characteristic = get_control_characteristic(desk).await;
+pub async fn get_position_characteristic(
+    desk: &impl ApiPeripheral,
+) -> Result<Characteristic, BtError> {
+    let characteristics = desk.characteristics();
+    find_characteristic(characteristics.iter(), POSITION_UUID, "Position")
+}
+
+async fn up(desk: &impl ApiPeripheral) -> Result<(), BtError> {
+    let control_characteristic = get_control_characteristic(desk).await?;
 
     desk.write(&control_characteristic, &UP, WriteType::WithoutResponse)
-        .await
+        .await?;
+    Ok(())
 }
 
-async fn down(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
-    let control_characteristic = get_control_characteristic(desk).await;
+async fn down(desk: &impl ApiPeripheral) -> Result<(), BtError> {
+    let control_characteristic = get_control_characteristic(desk).await?;
     desk.write(&control_characteristic, &DOWN, WriteType::WithoutResponse)
-        .await
+        .await?;
+    Ok(())
 }
 
-async fn stop(desk: &impl ApiPeripheral) -> btleplug::Result<()> {
-    let control_characteristic = get_control_characteristic(desk).await;
+async fn stop(desk: &impl ApiPeripheral) -> Result<(), BtError> {
+    let control_characteristic = get_control_characteristic(desk).await?;
     desk.write(&control_characteristic, &STOP, WriteType::WithoutResponse)
-        .await
+        .await?;
+    Ok(())
 }
 
 pub async fn move_to_target(
@@ -251,7 +262,7 @@ pub async fn get_position(desk: &impl ApiPeripheral) -> Result<u16, BtError> {
 }
 
 pub async fn get_position_and_speed(desk: &impl ApiPeripheral) -> Result<PositionSpeed, BtError> {
-    let position_characteristic = get_position_characteristic(desk).await;
+    let position_characteristic = get_position_characteristic(desk).await?;
 
     let value = desk.read(&position_characteristic).await?;
     Ok(bytes_to_position_speed(&value))
@@ -263,6 +274,16 @@ pub struct ExpandedPeripheral {
     pub name: String,
 }
 
+fn collect_adapter_results<T>(
+    jobs: impl IntoIterator<Item = Result<Vec<T>, BtError>>,
+) -> Result<Vec<T>, BtError> {
+    let mut items = Vec::new();
+    for job in jobs {
+        items.append(&mut job?);
+    }
+    Ok(items)
+}
+
 pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeripheral>, BtError> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
@@ -272,10 +293,7 @@ pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeriphera
         jobs.push(search_adapter_for_desks(adapter, loc_name.clone()).await);
     }
 
-    let mut desks = Vec::new();
-    for job in jobs {
-        desks.append(&mut job.unwrap());
-    }
+    let desks = collect_adapter_results(jobs)?;
 
     if desks.is_empty() {
         Err(BtError::CannotFindDevice)
@@ -424,5 +442,33 @@ mod tests {
             BtError::PositionNotInRange.to_string(),
             "Desired position has to be between MIN_HEIGHT and MAX_HEIGHT."
         );
+    }
+
+    #[test]
+    fn missing_characteristics_are_recoverable_errors() {
+        let result = find_characteristic(
+            std::iter::empty::<&Characteristic>(),
+            CONTROL_UUID,
+            "Control",
+        );
+
+        assert!(matches!(
+            result,
+            Err(BtError::CharacteristicsNotFound(name)) if name == "Control"
+        ));
+    }
+
+    #[test]
+    fn adapter_scan_errors_are_propagated() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
+            Ok(vec![1]),
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "adapter unavailable".to_string(),
+            ))),
+        ];
+
+        let result = collect_adapter_results(jobs);
+
+        assert!(matches!(result, Err(BtError::BtlePlugError(_))));
     }
 }

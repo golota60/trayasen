@@ -45,7 +45,11 @@ From my experience, in order to connect to the desk I had to first connect the d
 
 ### MacOS
 
-Desk should NOT be connected to the system while opening the app. This is a weird quirk of MacOS that I'll look into fixing in the future. Also, since I'm not a signed Apple developer, you might get a prompt saying that the app can be opened - [here's how to bypass that](https://apple.stackexchange.com/a/267555).
+Desk should NOT be connected to the system while opening the app. This is a weird quirk of MacOS that I'll look into fixing in the future. Also, since I'm not a signed Apple developer, you might get a prompt saying that the app can be opened - In order to do that, when you get an error during installation:
+
+Go to "System Settings" -> "Privacy & Security" -> Scroll down to "Security" -> There you should see a prompt saying that "Trayasen" was blocked. Click "Open anyway".
+
+All the binaries created are trusted as they are created from the source code on Github Action CI, not on any local machine.
 
 ### Linux
 

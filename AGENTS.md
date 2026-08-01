@@ -1,0 +1,3 @@
+## Agent guidelines
+
+Use `superpowers` skill when implementing complicated features. For small bugfixes, do not use them, as that just wastes time and tokens.

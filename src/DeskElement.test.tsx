@@ -38,13 +38,23 @@ describe("DeskElement", () => {
   });
 
   it("reports connection only after the desk connection resolves", async () => {
-    connectToDesk.mockResolvedValue(undefined);
+    let resolveConnection = () => {};
+    const connection = new Promise<void>((resolve) => {
+      resolveConnection = resolve;
+    });
+    connectToDesk.mockReturnValue(connection);
     const props = renderDesk();
 
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
 
-    await waitFor(() => expect(props.onConnect).toHaveBeenCalledOnce());
     expect(connectToDesk).toHaveBeenCalledWith("Desk 1234");
+    expect(props.onLoadStart).toHaveBeenCalledOnce();
+    expect(props.onConnect).not.toHaveBeenCalled();
+    expect(props.onLoadEnd).not.toHaveBeenCalled();
+
+    resolveConnection();
+
+    await waitFor(() => expect(props.onConnect).toHaveBeenCalledOnce());
     expect(props.onError).not.toHaveBeenCalled();
     expect(props.onLoadStart).toHaveBeenCalledOnce();
     expect(props.onLoadEnd).toHaveBeenCalledOnce();

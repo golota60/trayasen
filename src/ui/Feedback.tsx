@@ -56,11 +56,13 @@ const spinnerSizes = {
 
 export interface CarrotSpinnerProps {
   "aria-label"?: string;
+  decorative?: boolean;
   size?: "sm" | "md" | "lg";
 }
 
 export const CarrotSpinner = ({
   "aria-label": ariaLabel = "Loading",
+  decorative = false,
   size = "sm",
 }: CarrotSpinnerProps) => {
   const dimension = spinnerSizes[size];
@@ -69,10 +71,11 @@ export const CarrotSpinner = ({
     <>
       <style>{`@keyframes carrot-spinner-rotation { to { transform: rotate(360deg); } }`}</style>
       <Image
-        aria-label={ariaLabel}
+        aria-hidden={decorative || undefined}
+        aria-label={decorative ? undefined : ariaLabel}
         className="carrot-spinner"
         height={dimension}
-        role="img"
+        role={decorative ? undefined : "img"}
         source={{ uri: "/carrot.png", width: dimension, height: dimension }}
         style={{ animation: "carrot-spinner-rotation 1.5s linear infinite" }}
         width={dimension}

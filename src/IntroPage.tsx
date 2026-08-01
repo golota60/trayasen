@@ -101,21 +101,20 @@ const IntroPage = () => {
           </YStack>
 
           {devicesLoading ? (
-            <StatePanel
-              description="This can take a few seconds."
-              icon={
-                <CarrotSpinner
-                  aria-label="Searching for Bluetooth devices"
-                  size="md"
-                />
-              }
-              title="Searching for Bluetooth devices"
-            />
+            <YStack aria-busy aria-live="polite" role="status">
+              <StatePanel
+                description="This can take a few seconds."
+                icon={<CarrotSpinner decorative size="md" />}
+                title="Searching for Bluetooth devices"
+              />
+            </YStack>
           ) : devices.length === 0 ? (
-            <StatePanel
-              description="Refresh the scan or show all Bluetooth devices."
-              title="No matching desks found"
-            />
+            <YStack aria-live="polite" role="status">
+              <StatePanel
+                description="Refresh the scan or show all Bluetooth devices."
+                title="No matching desks found"
+              />
+            </YStack>
           ) : (
             <YStack gap="$3">
               {devices.map((device) => (

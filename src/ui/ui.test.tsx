@@ -6,7 +6,7 @@ import { Input, TamaguiProvider } from "tamagui";
 import appConfig from "../../tamagui.config";
 import { AppButton } from "./Button";
 import { ExternalLink } from "./ExternalLink";
-import { Alert } from "./Feedback";
+import { Alert, CarrotSpinner } from "./Feedback";
 import { FormField } from "./FormField";
 import { LinkButton } from "./LinkButton";
 
@@ -76,6 +76,12 @@ describe("shared UI", () => {
       "aria-disabled",
       "true"
     );
+  });
+
+  it("keeps the default spinner accessible", () => {
+    renderUi(<CarrotSpinner />);
+
+    expect(screen.getByRole("img", { name: "Loading" })).toBeInTheDocument();
   });
 
   it("uses alert only for errors and status for other feedback", () => {

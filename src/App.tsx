@@ -6,13 +6,17 @@ import NewPositionPage from "./NewPositionPage";
 import IntroPage from "./IntroPage";
 import ManagePositionsPage from "./ManagePositionsPage";
 import { Button } from "./generic/button";
-import { connectToDesk, resetDesk } from "./rustUtils";
+import { connectToDesk, removeConfig, resetDesk } from "./rustUtils";
 import Spinner from "./generic/Spinner";
 
 // This error will only happen for users with a desk already set up. Intro Page errors are be handled in Intro Page.
 const ReturningUserErrorPage = () => {
   const [isLoading, setLoading] = useState(false);
+  const [isResetting, setResetting] = useState(false);
   const [error, setError] = useState<string>("");
+  const [resetError, setResetError] = useState<string>("");
+  const errorState = (window as any)?.stateWorkaround;
+  const canRetryDesk = Boolean(errorState?.desk_name);
 
   if (isLoading) {
     return (
@@ -31,45 +35,69 @@ const ReturningUserErrorPage = () => {
         alignItems: "center",
       }}
     >
-      <div>{(window as any)?.stateWorkaround?.title}</div>
-      <div>{(window as any)?.stateWorkaround?.description}</div>
+      <div>{errorState?.title}</div>
+      <div>{errorState?.description}</div>
+      {canRetryDesk ? (
+        <>
+          <div>
+            <Button
+              onClick={async () => {
+                setLoading(true);
+                setError("");
+                try {
+                  await connectToDesk(errorState.desk_name);
+                  await relaunch();
+                } catch (retryError) {
+                  setError(String(retryError));
+                  setLoading(false);
+                }
+              }}
+            >
+              Try again
+            </Button>
+          </div>
+          <div>or</div>
+        </>
+      ) : null}
       <div>
         <Button
+          disabled={isResetting}
           onClick={async () => {
-            setLoading(true);
+            setResetting(true);
+            setResetError("");
             try {
-              await connectToDesk((window as any)?.stateWorkaround?.desk_name);
-            } catch (e) {
-              setError(e as string);
-            }
-            setLoading(false);
-          }}
-        >
-          Try again
-        </Button>
-      </div>
-      <div>or</div>
-      <div>
-        <Button
-          onClick={async () => {
-            try {
-              await resetDesk();
+              if (canRetryDesk) {
+                await resetDesk();
+              } else {
+                await removeConfig();
+              }
               await relaunch();
-            } catch (resetError) {
+            } catch (actionError) {
               console.error(
-                "Could not reset desk and relaunch Trayasen",
-                resetError
+                "Could not reset and relaunch Trayasen",
+                actionError
               );
-              setError(String(resetError));
+              setResetError(String(actionError));
+              setResetting(false);
             }
           }}
         >
-          Reset app and desk name & open the connect intro menu
+          {isResetting
+            ? "Resetting..."
+            : canRetryDesk
+            ? "Reset app and desk name & open the connect intro menu"
+            : "Reset config & restart the app"}
         </Button>
       </div>
 
       <div>Error content:</div>
-      <div>{(window as any)?.stateWorkaround?.error || error}</div>
+      <div>{errorState?.error}</div>
+      {error ? (
+        <div className="text-red-500">Action failed: {error}</div>
+      ) : null}
+      {resetError ? (
+        <div className="text-red-500">Reset failed: {resetError}</div>
+      ) : null}
     </div>
   );
 };

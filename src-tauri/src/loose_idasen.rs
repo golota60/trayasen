@@ -76,9 +76,6 @@ pub enum BtError {
 
     #[error("btleplug error: {0}")]
     BtlePlugError(#[from] btleplug::Error),
-
-    #[error("Configuration error: {0}")]
-    Config(String),
 }
 
 pub struct ConnectedBtDevice<T>
@@ -374,10 +371,7 @@ pub async fn get_available_desks_to_connect(
 
 // TODO: UPDATE THE DESK INSTANCE MUTEX EVERY TIME YOU USE THIS FUNCTION HERE OTHERWISE IT WILL BREAK
 // AS WE WILL HAVE DESYNC OF ACTUAL DESK AND CONNECTED ONE
-pub async fn connect_to_desk_by_name_internal(
-    app_handle: &tauri::AppHandle,
-    name: String,
-) -> Result<PlatformPeripheral, BtError> {
+pub async fn connect_to_desk_by_name_internal(name: String) -> Result<PlatformPeripheral, BtError> {
     let desk_to_connect = get_list_of_desks(&Some(name.clone())).await?;
     let desk_to_connect = desk_to_connect
         .into_iter()
@@ -386,8 +380,8 @@ pub async fn connect_to_desk_by_name_internal(
     let desk_to_connect = desk_to_connect.perp;
     println!("after desk to connect!");
 
-    config_utils::save_local_name(app_handle, name).map_err(BtError::Config)?;
-    println!("saved desk!");
+    // Persisting the selected desk is intentionally owned by the user-initiated command after
+    // this connection and protocol setup both succeed. Startup reconnection stays read-only.
     // TODO: try to use the ACTUAL connected bt device, instead of the pre-connected device instance
     // Challenge here is that we cannot operate on `impl ApiPeripheral`, cause it's not sized.
     // Maybe it should be boxed/arced?

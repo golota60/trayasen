@@ -34,6 +34,12 @@ pub struct ConfigData {
     pub saved_positions: Vec<Position>,
 }
 
+#[derive(Debug)]
+pub struct StartupConfig {
+    pub config: ConfigData,
+    pub recovery_error: Option<String>,
+}
+
 fn config_path_in(data_dir: PathBuf) -> PathBuf {
     data_dir.join(CONFIG_FILE_NAME)
 }
@@ -99,6 +105,32 @@ pub fn get_or_create_config(app_handle: &AppHandle) -> Result<ConfigData, String
     let config_path = get_config_path(app_handle)?;
     println!("Config path: {:?}", config_path);
     get_or_create_config_at(&config_path)
+}
+
+fn startup_config_at(path: &Path) -> StartupConfig {
+    match get_or_create_config_at(path) {
+        Ok(config) => StartupConfig {
+            config,
+            recovery_error: None,
+        },
+        Err(error) => StartupConfig {
+            config: empty_config(),
+            recovery_error: Some(error),
+        },
+    }
+}
+
+pub fn startup_config(app_handle: &AppHandle) -> StartupConfig {
+    match get_config_path(app_handle) {
+        Ok(config_path) => {
+            println!("Config path: {:?}", config_path);
+            startup_config_at(&config_path)
+        }
+        Err(error) => StartupConfig {
+            config: empty_config(),
+            recovery_error: Some(error),
+        },
+    }
 }
 
 pub fn save_local_name(app_handle: &AppHandle, new_local_name: String) -> Result<(), String> {
@@ -298,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn malformed_config_is_reported_without_overwriting_it() {
+    fn malformed_config_enters_recovery_without_overwriting_it() {
         let root = std::env::temp_dir().join(format!(
             "trayasen-malformed-config-test-{}-{}",
             std::process::id(),
@@ -311,9 +343,11 @@ mod tests {
         let path = root.join(CONFIG_FILE_NAME);
         fs::write(&path, "not json").unwrap();
 
-        let error = get_or_create_config_at(&path).unwrap_err();
+        let startup = startup_config_at(&path);
 
-        assert!(error.contains("parse"));
+        assert!(startup.recovery_error.unwrap().contains("parse"));
+        assert_eq!(startup.config.local_name, None);
+        assert!(startup.config.saved_positions.is_empty());
         assert_eq!(fs::read_to_string(&path).unwrap(), "not json");
         fs::remove_dir_all(root).unwrap();
     }

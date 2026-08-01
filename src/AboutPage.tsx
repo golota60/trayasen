@@ -19,6 +19,8 @@ const AboutPage = () => {
     boolean | undefined
   >();
   const [isUpdatingAutostart, setUpdatingAutostart] = useState(false);
+  const [isResetting, setResetting] = useState(false);
+  const [actionError, setActionError] = useState<string>();
 
   const [upstreamAutostart, { error: autostartReadError }] =
     useSimpleAsync(isEnabled);
@@ -32,6 +34,9 @@ const AboutPage = () => {
   useEffect(() => {
     if (autostartReadError) {
       console.error("Could not read autostart state", autostartReadError);
+      setActionError(
+        `Could not read autostart state: ${String(autostartReadError)}`
+      );
     }
   }, [autostartReadError]);
 
@@ -49,6 +54,7 @@ const AboutPage = () => {
           <Checkbox
             onCheckedChange={async () => {
               setUpdatingAutostart(true);
+              setActionError(undefined);
               try {
                 if (isAutostartEnabled) {
                   await disable();
@@ -59,6 +65,7 @@ const AboutPage = () => {
                 }
               } catch (error) {
                 console.error("Could not update autostart state", error);
+                setActionError(`Could not update autostart: ${String(error)}`);
               } finally {
                 setUpdatingAutostart(false);
               }
@@ -90,16 +97,21 @@ const AboutPage = () => {
           <div className="flex justify-between mb-3">
             <Button
               className="mr-2"
+              disabled={isResetting}
               onClick={async () => {
+                setResetting(true);
+                setActionError(undefined);
                 try {
                   await removeConfig();
                   await relaunch();
                 } catch (error) {
                   console.error("Could not reset and relaunch Trayasen", error);
+                  setActionError(`Could not reset config: ${String(error)}`);
+                  setResetting(false);
                 }
               }}
             >
-              Reset config & restart the app
+              {isResetting ? "Resetting..." : "Reset config & restart the app"}
             </Button>
             <TooltipProvider>
               <Tooltip delayDuration={100}>
@@ -112,6 +124,9 @@ const AboutPage = () => {
               </Tooltip>
             </TooltipProvider>
           </div>
+          {actionError ? (
+            <div className="mb-3 text-red-500">{actionError}</div>
+          ) : null}
         </div>
         <h1
           className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0

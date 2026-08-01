@@ -174,7 +174,7 @@ Cargo subsequently reports the remaining expected v1 API incompatibilities aroun
 
 The desktop runtime now uses Tauri v2's `WebviewWindowBuilder`, `menu` and `tray` modules, app path resolver, and the v2 global-shortcut and autostart plugin builders. The config remains at the operating system data directory root with the filename `idasen-tray-config.json`, so existing user data remains discoverable.
 
-Tray actions retain the required IDs `add_position`, `manage_positions`, `about`, and `quit`; saved position names remain the IDs for their movement items. Global shortcut strings are passed through unchanged. Registration and unregistration errors are now written to stderr with the shortcut and position name instead of being silently ignored.
+Tray actions retain the required IDs `add_position`, `manage_positions`, `about`, and `quit`; saved-position movement items use internal `position:<name>` IDs while preserving their visible and persisted names. Global shortcut strings are passed through unchanged. Registration and unregistration errors are now written to stderr with the shortcut and position name instead of being silently ignored.
 
 The migration inventory listed `connect_to_config_desk`, but that command does not exist in the pre-migration Rust source, frontend consumers, or repository history. No new command or unapproved behavior was invented. All actual registered commands, including `get_available_desks_to_connect`, remain in `tauri::generate_handler!`.
 
@@ -203,6 +203,9 @@ The default capability grants only the required window close/minimize/toggle-max
 - Config creation now creates a missing data-directory parent. Missing files create defaults, while malformed configs and other I/O failures are reported without overwriting the source file. Reset, deletion, startup discovery, and config writes return recoverable errors.
 - Tray/global-shortcut movement failures and unavailable desk state are logged instead of panicking. Autostart mutations complete before UI state changes, and autostart/opener/reset failures are logged or displayed by the existing error UI.
 - Generated `.pi-subagents/` orchestration artifacts are ignored at the repository root.
+- Malformed or unreadable startup configs are preserved byte-for-byte. Trayasen starts with an in-memory empty config, keeps the tray alive, and opens a recovery route in the single `main` window where the user can explicitly reset and relaunch.
+- Startup reconnection is read-only. A desk name is persisted only after a user-initiated Bluetooth connection and protocol setup succeed; successful retry relaunches so tray shortcuts and runtime state initialize normally.
+- Position create/remove/load, config reset, and autostart actions now expose failures and disable duplicate submissions while pending.
 
 Residual verification limits are unchanged for physical desk movement and unavailable interactive GUI automation. The About link handler, opener registration, exact URL scopes, frontend compilation, capability generation, app packaging, and bounded app launch were validated; actually clicking the links was not attempted because it would open the host browser from this non-interactive run.
 
@@ -227,7 +230,7 @@ Residual verification limits are unchanged for physical desk movement and unavai
 - Change: The Rust runtime uses v2 webview-window, menu, tray, global-shortcut, path, process, and autostart APIs.
   - Reason: The v1 runtime types and managers were removed or replaced in Tauri v2.
   - User impact: Startup, background operation, tray actions, saved-position actions, and shortcuts are intended to remain the same.
-  - Verification: `cargo check --locked`, the ten passing hermetic Rust tests, the bounded macOS launch, and source inspection of stable tray action IDs.
+  - Verification: `cargo check --locked`, the eleven passing hermetic Rust tests, the bounded macOS launch, and source inspection of stable tray action IDs.
 - Change: The internal About/Options tray menu ID changed from `about/options` to `about`.
   - Reason: The runtime migration contract uses a stable identifier without a slash, and the menu and handler must agree.
   - User impact: None expected; the visible label remains `About/Options`.
@@ -270,10 +273,11 @@ Automated results:
 - `npm audit`: PASS; 0 vulnerabilities.
 - `source "$HOME/.cargo/env" && cd src-tauri && cargo fmt -- --check`: PASS.
 - `source "$HOME/.cargo/env" && cd src-tauri && cargo check --locked`: PASS; only the existing dead-code warning for four `ConnectedBtDevice` fields was emitted.
-- `source "$HOME/.cargo/env" && cd src-tauri && cargo test --locked`: PASS; 10 passed, 0 failed, 0 ignored. The suite contains only pure tests and does not initialize Bluetooth, BlueZ, or D-Bus.
+- `source "$HOME/.cargo/env" && cd src-tauri && cargo test --locked`: PASS; 11 passed, 0 failed, 0 ignored. The suite contains only pure tests and does not initialize Bluetooth, BlueZ, or D-Bus.
 - `source "$HOME/.cargo/env" && npx tauri info`: PASS for project/plugin discovery; it reports the opener Rust and JavaScript packages at 2.5.4. The environment section still notes that full Xcode is not installed, while Xcode Command Line Tools are available.
 - `source "$HOME/.cargo/env" && npm run tauri:build`: application compilation and `.app` bundling PASS, but the all-target command exited 1 while styling the DMG because Finder did not answer the bounded AppleEvent: `execution error: Finder got an error: AppleEvent timed out. (-1712)` followed by `Failed running AppleScript`. This is a packaging-environment blocker, not a compile failure.
 - `source "$HOME/.cargo/env" && npm run tauri:build -- --bundles app`: PASS after the final fixes; produced `src-tauri/target/release/bundle/macos/Trayasen.app` without invoking Finder's DMG styling step. Capability/config generation accepted the scoped opener and start-dragging permissions.
+- A bounded eight-second packaged-app launch with an isolated malformed config remained alive, logged configuration recovery, and left the malformed file byte-for-byte unchanged before deliberate termination.
 
 The review inventory search found current v2 imports in `src/*.tsx` and historical references in the migration plan and this evidence document. It found no active v1-only API use in application source, configuration, or package manifests.
 

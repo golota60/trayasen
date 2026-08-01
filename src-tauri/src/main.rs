@@ -28,7 +28,7 @@ pub struct TauriSharedDesk(Mutex<Result<PlatformPeripheral, BtError>>);
 #[derive(Serialize)]
 struct ErrorWindowState<'a> {
     title: String,
-    description: &'static str,
+    description: String,
     desk_name: &'a str,
     error: &'a str,
 }
@@ -51,12 +51,15 @@ pub(crate) fn route_initialization_script(route: &str) -> String {
     format!("history.replaceState({{}}, '', {route});")
 }
 
-fn error_initialization_script(desk_name: &str, error: &str) -> String {
+fn error_state_initialization_script(
+    title: String,
+    description: &str,
+    desk_name: &str,
+    error: &str,
+) -> String {
     let state = ErrorWindowState {
-        title: format!(
-            "The app was not able to connect to your saved desk with name: `{desk_name}`."
-        ),
-        description: ERROR_DESCRIPTION,
+        title,
+        description: description.to_string(),
         desk_name,
         error,
     };
@@ -64,6 +67,24 @@ fn error_initialization_script(desk_name: &str, error: &str) -> String {
     let route = json_for_initialization_script(&ERROR_ROUTE);
 
     format!("window.stateWorkaround = {state};\nhistory.replaceState({{}}, '', {route});")
+}
+
+fn connection_error_initialization_script(desk_name: &str, error: &str) -> String {
+    error_state_initialization_script(
+        format!("The app was not able to connect to your saved desk with name: `{desk_name}`."),
+        ERROR_DESCRIPTION,
+        desk_name,
+        error,
+    )
+}
+
+fn config_recovery_initialization_script(error: &str) -> String {
+    error_state_initialization_script(
+        "Trayasen could not read your configuration.".to_string(),
+        "The original config was left unchanged. Reset it below to create a fresh config and restart Trayasen.",
+        "",
+        error,
+    )
 }
 
 // Whether a system should have custom decorations or not
@@ -99,6 +120,22 @@ where
         }
 
         window_builder.build()
+    }
+}
+
+fn open_main_window(app: &AppHandle, title: &str, init_script: Option<&str>) {
+    match WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .init_trayasen(title, init_script)
+    {
+        Ok(window) => {
+            if let Err(error) = window.show() {
+                eprintln!("Could not show `{title}` window: {error}");
+            }
+            if let Err(error) = window.set_focus() {
+                eprintln!("Could not focus `{title}` window: {error}");
+            }
+        }
+        Err(error) => eprintln!("Could not create `{title}` window: {error}"),
     }
 }
 
@@ -184,21 +221,28 @@ fn create_new_elem(
     }
 }
 
+fn persist_after_success<T>(
+    connection: Result<T, String>,
+    persist: impl FnOnce() -> Result<(), String>,
+) -> Result<T, String> {
+    let connected = connection?;
+    persist()?;
+    Ok(connected)
+}
+
 /// Provided a name, will connect to a desk with this name - after this step, desk actually becomes usable
 #[tauri::command]
 async fn connect_to_desk_by_name(app_handle: tauri::AppHandle, name: String) -> Result<(), String> {
     println!("connecting to desk with name: {}", name);
     let instantiated_desk = app_handle.state::<TauriSharedDesk>();
     println!("with desk!...");
-    let cached_desk = loose_idasen::connect_to_desk_by_name_internal(&app_handle, name).await;
+    let connection = loose_idasen::connect_to_desk_by_name_internal(name.clone())
+        .await
+        .map_err(|error| error.to_string());
     println!("after cached desk...");
-    let cached_desk = match cached_desk {
-        Ok(desk) => desk,
-        Err(error) => {
-            println!("in error!...");
-            return Err(error.to_string());
-        }
-    };
+    let cached_desk = persist_after_success(connection, || {
+        config_utils::save_local_name(&app_handle, name)
+    })?;
 
     desk_mutex::assign_desk_to_mutex(&instantiated_desk, Ok(cached_desk));
     println!("Successfuly connected to desk from frontend");
@@ -261,19 +305,20 @@ fn main() {
         .manage(TauriSharedDesk(Mutex::new(Err(BtError::NotInitiated))))
         .setup(|app| {
             let app_handle = app.handle().clone();
-            let config =
-                config_utils::get_or_create_config(&app_handle).map_err(std::io::Error::other)?;
+            let startup = config_utils::startup_config(&app_handle);
+            let config = startup.config;
+            let recovery_error = startup.recovery_error;
 
             /*
             If there is a desk name present already, do not bother the end user with windows opening/loading. Just connect to his desk.
             */
-            if let Some(local_name) = config.local_name.clone() {
-                let cached_desk = block_on(loose_idasen::connect_to_desk_by_name_internal(
-                    &app_handle,
-                    local_name,
-                ));
-                let initiated_desk = app.state::<TauriSharedDesk>();
-                desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
+            if recovery_error.is_none() {
+                if let Some(local_name) = config.local_name.clone() {
+                    let cached_desk =
+                        block_on(loose_idasen::connect_to_desk_by_name_internal(local_name));
+                    let initiated_desk = app.state::<TauriSharedDesk>();
+                    desk_mutex::assign_desk_to_mutex(&initiated_desk, cached_desk);
+                }
             }
 
             println!("Loaded config: {:?}", config);
@@ -294,6 +339,17 @@ fn main() {
             // Preserve the initial config as managed state for existing setup behavior.
             app.manage(config.clone());
 
+            if let Some(error) = recovery_error {
+                eprintln!("Config recovery required: {error}");
+                let init_script = config_recovery_initialization_script(&error);
+                open_main_window(
+                    &app_handle,
+                    "Trayasen - Configuration recovery",
+                    Some(&init_script),
+                );
+                return Ok(());
+            }
+
             /*
                 On setup, we only wanna bail early if we're already connected
                 and register all the shortcuts
@@ -301,50 +357,31 @@ fn main() {
             match &config.local_name {
                 Some(actual_loc_name) => {
                     let desk_state = app.state::<TauriSharedDesk>();
-
-                    // We expect the desk to already exist at this point, since if loc_name exists, the first thing we do in the app is connect
-                    let desk = desk_state
-                        .0
-                        .lock()
-                        .expect("Error while unwrapping shared desk");
-                    match desk.as_ref() {
-                        /*
-                            If the user is returning(has a config) immidiately close the window, not to eat resources
-                            And then proceed to try to create the menu.
-                        */
-                        Ok(desk) => {
-                            // Register all shortcuts
-                            for position in &config.saved_positions {
-                                register_position_shortcut(&app_handle, position, desk.clone());
+                    match desk_state.0.lock() {
+                        Ok(desk) => match desk.as_ref() {
+                            Ok(desk) => {
+                                for position in &config.saved_positions {
+                                    register_position_shortcut(&app_handle, position, desk.clone());
+                                }
                             }
-                        }
-                        Err(error) => {
-                            let error = error.to_string();
-                            let init_script =
-                                error_initialization_script(actual_loc_name, error.as_str());
-                            WebviewWindowBuilder::new(
-                                app,
-                                "init_window",
-                                WebviewUrl::App("index.html".into()),
-                            )
-                            .init_trayasen("Trayasen - Woops!", Some(&init_script))?;
-
-                            // Open error window with the error
-                            println!("opening error window! error: {error}");
-                        }
-                    }
+                            Err(error) => {
+                                let error = error.to_string();
+                                let init_script = connection_error_initialization_script(
+                                    actual_loc_name,
+                                    error.as_str(),
+                                );
+                                open_main_window(
+                                    &app_handle,
+                                    "Trayasen - Woops!",
+                                    Some(&init_script),
+                                );
+                                println!("opening error window! error: {error}");
+                            }
+                        },
+                        Err(error) => eprintln!("Could not inspect connected desk state: {error}"),
+                    };
                 }
-                None => {
-                    let init_window = WebviewWindowBuilder::new(
-                        app,
-                        "main",
-                        WebviewUrl::App("index.html".into()),
-                    )
-                    .init_trayasen("Trayasen - Setup", None)?;
-
-                    // If loc_name doesn't exist, that means there's no saved desk - meaning we need to show the initial setup window
-                    init_window.show()?;
-                }
+                None => open_main_window(&app_handle, "Trayasen - Setup", None),
             }
 
             Ok(())
@@ -418,7 +455,7 @@ mod initialization_script_tests {
             "desk \"quoted\" \\\\ path\n</script><script>deskPayload()</script>\u{2028}";
         let error =
             "failure \"quoted\" \\\\ trace\n</script><script>errorPayload()</script>\u{2029}";
-        let script = error_initialization_script(desk_name, error);
+        let script = connection_error_initialization_script(desk_name, error);
 
         let state_json = script
             .strip_prefix("window.stateWorkaround = ")
@@ -451,6 +488,24 @@ mod initialization_script_tests {
         assert!(!should_prevent_exit(Some(tauri::RESTART_EXIT_CODE)));
         assert!(should_prevent_exit(None));
         assert!(should_prevent_exit(Some(0)));
+    }
+
+    #[test]
+    fn desk_name_is_persisted_only_after_successful_connection() {
+        let mut persisted = false;
+        let failed = persist_after_success::<()>(Err("connection failed".to_string()), || {
+            persisted = true;
+            Ok(())
+        });
+        assert!(failed.is_err());
+        assert!(!persisted);
+
+        let connected = persist_after_success(Ok("desk"), || {
+            persisted = true;
+            Ok(())
+        });
+        assert_eq!(connected.unwrap(), "desk");
+        assert!(persisted);
     }
 
     #[test]

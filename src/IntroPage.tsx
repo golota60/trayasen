@@ -25,6 +25,8 @@ const IntroPage = () => {
   const [connectedNewDesk, setConnectedNewDesk] = useState<string>();
   const [showAll, setShowAll] = useState(false);
   const [deskError, setDeskError] = useState<string>();
+  const [resetError, setResetError] = useState<string>();
+  const [isResetting, setResetting] = useState(false);
 
   const actualError = error || deskError;
 
@@ -34,25 +36,32 @@ const IntroPage = () => {
         Something went wrong.{" "}
         <div>
           <Button
+            disabled={isResetting}
             onClick={async () => {
+              setResetting(true);
+              setResetError(undefined);
               try {
                 await removeConfig();
                 await relaunch();
-              } catch (resetError) {
+              } catch (actionError) {
                 console.error(
                   "Could not reset and relaunch Trayasen",
-                  resetError
+                  actionError
                 );
-                setDeskError(String(resetError));
+                setResetError(String(actionError));
+                setResetting(false);
               }
             }}
           >
-            Reset config & restart the app
+            {isResetting ? "Resetting..." : "Reset config & restart the app"}
           </Button>
         </div>
         <div>
           Error contents: <p>{String(actualError as any)}</p>
         </div>
+        {resetError ? (
+          <div className="text-red-500">Reset failed: {resetError}</div>
+        ) : null}
       </div>
     );
   }

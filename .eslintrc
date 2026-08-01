@@ -4,5 +4,19 @@
   "rules": {
     "react/react-in-jsx-scope": 0,
     "react/no-unescaped-entities": 0
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "jest/no-deprecated-functions": "off"
+      }
+    },
+    {
+      "files": ["src/test/**/*.ts", "src/test/**/*.tsx"],
+      "rules": {
+        "import/no-extraneous-dependencies": ["error", { "devDependencies": true }]
+      }
+    }
+  ]
 }

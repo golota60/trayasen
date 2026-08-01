@@ -4,6 +4,7 @@
 */
 use std::{
     cmp::Ordering,
+    future::Future,
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -42,10 +43,18 @@ pub struct PositionSpeed {
     pub speed: i16,
 }
 
-pub fn bytes_to_position_speed(bytes: &[u8]) -> PositionSpeed {
+pub fn bytes_to_position_speed(bytes: &[u8]) -> Result<PositionSpeed, BtError> {
+    const POSITION_PAYLOAD_LENGTH: usize = 4;
+    if bytes.len() < POSITION_PAYLOAD_LENGTH {
+        return Err(BtError::PositionPayloadTooShort {
+            expected: POSITION_PAYLOAD_LENGTH,
+            actual: bytes.len(),
+        });
+    }
+
     let position = u16::from_le_bytes([bytes[0], bytes[1]]) + MIN_HEIGHT;
     let speed = i16::from_le_bytes([bytes[2], bytes[3]]);
-    PositionSpeed { position, speed }
+    Ok(PositionSpeed { position, speed })
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,6 +73,11 @@ pub enum BtError {
 
     #[error("Bluetooth characteristics not found: '{}'.", _0)]
     CharacteristicsNotFound(String),
+
+    #[error(
+        "Bluetooth position payload too short: expected at least {expected} bytes, got {actual}."
+    )]
+    PositionPayloadTooShort { expected: usize, actual: usize },
 
     #[error("Desired position has to be between MIN_HEIGHT and MAX_HEIGHT.")]
     PositionNotInRange,
@@ -147,21 +161,26 @@ async fn get_list_of_desks_once(
     }
 }
 
-pub async fn get_list_of_desks(
-    loc_name: &Option<String>,
-) -> Result<Vec<ExpandedPeripheral>, BtError> {
-    // try 3 times before erroring
-    let mut desks;
-    for _loop_iter in 0..3 {
-        desks = get_list_of_desks_once(loc_name).await;
-
-        if desks.is_ok() {
-            return desks;
-            // break;
+async fn retry_not_found<T, F, Fut>(max_attempts: usize, mut operation: F) -> Result<T, BtError>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, BtError>>,
+{
+    let max_attempts = max_attempts.max(1);
+    for attempt in 0..max_attempts {
+        match operation().await {
+            Err(BtError::CannotFindDevice) if attempt + 1 < max_attempts => continue,
+            result => return result,
         }
     }
 
-    Err(BtError::CannotFindDevice)
+    unreachable!("at least one retry attempt always runs")
+}
+
+pub async fn get_list_of_desks(
+    loc_name: &Option<String>,
+) -> Result<Vec<ExpandedPeripheral>, BtError> {
+    retry_not_found(3, || get_list_of_desks_once(loc_name)).await
 }
 
 // Getting characteristics every time is wasteful
@@ -265,7 +284,7 @@ pub async fn get_position_and_speed(desk: &impl ApiPeripheral) -> Result<Positio
     let position_characteristic = get_position_characteristic(desk).await?;
 
     let value = desk.read(&position_characteristic).await?;
-    Ok(bytes_to_position_speed(&value))
+    bytes_to_position_speed(&value)
 }
 
 /// Peripheral expanded with it's name(we treat it as an ID)
@@ -278,10 +297,31 @@ fn collect_adapter_results<T>(
     jobs: impl IntoIterator<Item = Result<Vec<T>, BtError>>,
 ) -> Result<Vec<T>, BtError> {
     let mut items = Vec::new();
+    let mut successful_adapter = false;
+    let mut first_error = None;
+
     for job in jobs {
-        items.append(&mut job?);
+        match job {
+            Ok(mut adapter_items) => {
+                successful_adapter = true;
+                items.append(&mut adapter_items);
+            }
+            Err(error) => {
+                eprintln!("Bluetooth adapter scan failed: {error}");
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+            }
+        }
     }
-    Ok(items)
+
+    if successful_adapter {
+        Ok(items)
+    } else if let Some(error) = first_error {
+        Err(error)
+    } else {
+        Ok(items)
+    }
 }
 
 pub async fn get_desks(loc_name: Option<String>) -> Result<Vec<ExpandedPeripheral>, BtError> {
@@ -424,12 +464,25 @@ mod tests {
     #[test]
     fn decodes_position_and_speed_without_bluetooth_hardware() {
         assert_eq!(
-            bytes_to_position_speed(&[0x34, 0x12, 0xfe, 0xff]),
+            bytes_to_position_speed(&[0x34, 0x12, 0xfe, 0xff]).unwrap(),
             PositionSpeed {
                 position: MIN_HEIGHT + 0x1234,
                 speed: -2,
             }
         );
+    }
+
+    #[test]
+    fn short_position_payload_is_a_recoverable_error() {
+        let result = bytes_to_position_speed(&[0x34, 0x12, 0xfe]);
+
+        assert!(matches!(
+            result,
+            Err(BtError::PositionPayloadTooShort {
+                expected: 4,
+                actual: 3
+            })
+        ));
     }
 
     #[test]
@@ -459,16 +512,53 @@ mod tests {
     }
 
     #[test]
-    fn adapter_scan_errors_are_propagated() {
+    fn successful_adapter_results_survive_other_adapter_errors() {
         let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
             Ok(vec![1]),
             Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
                 "adapter unavailable".to_string(),
+            ))),
+            Ok(vec![2]),
+        ];
+
+        assert_eq!(collect_adapter_results(jobs).unwrap(), vec![1, 2]);
+    }
+
+    #[test]
+    fn all_adapter_errors_return_a_concrete_error() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "first adapter unavailable".to_string(),
+            ))),
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "second adapter unavailable".to_string(),
             ))),
         ];
 
         let result = collect_adapter_results(jobs);
 
         assert!(matches!(result, Err(BtError::BtlePlugError(_))));
+    }
+
+    #[tokio::test]
+    async fn terminal_backend_error_is_not_replaced_by_not_found() {
+        let attempts = std::cell::Cell::new(0);
+
+        let result: Result<Vec<u8>, BtError> = retry_not_found(3, || {
+            attempts.set(attempts.get() + 1);
+            async {
+                Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                    "permission denied".to_string(),
+                )))
+            }
+        })
+        .await;
+
+        assert_eq!(attempts.get(), 1);
+        assert!(matches!(result, Err(BtError::BtlePlugError(_))));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("permission denied"));
     }
 }

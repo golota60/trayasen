@@ -22,6 +22,12 @@ The refresh will preserve Trayasen's routes, saved data, Tauri commands, and des
 - Adding new product features unrelated to the current workflows.
 - Performing broad Rust or application-architecture refactors.
 
+## Planning and Implementation Autonomy
+
+If planning or implementation reveals a minor incorrect assumption, omitted detail, or local incompatibility, the implementer should make the smallest reasonable decision that remains consistent with this design and continue without interrupting the user. Examples include component naming, file placement, exact token values, minor responsive behavior, and equivalent Tamagui API choices.
+
+The user should only be consulted when new information creates a fundamental conflict involving product scope, user-visible behavior, persisted data, native command contracts, platform support, destructive behavior, or the approved architecture and visual direction.
+
 ## Visual Direction
 
 The interface will use a calm, minimal dark theme:

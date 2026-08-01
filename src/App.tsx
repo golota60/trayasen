@@ -1,7 +1,6 @@
 import { relaunch } from "@tauri-apps/plugin-process";
-import { createBrowserRouter } from "found";
-import type { RouteConfig } from "found";
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
+import { Route, Switch } from "wouter";
 import { YStack } from "tamagui";
 import AboutPage from "./AboutPage";
 import IntroPage from "./IntroPage";
@@ -12,6 +11,7 @@ import { AppButton } from "./ui/Button";
 import { SurfaceCard } from "./ui/Card";
 import { Alert, CarrotSpinner } from "./ui/Feedback";
 import { PageShell } from "./ui/PageShell";
+import { TechnicalDisclosure } from "./ui/TechnicalDisclosure";
 
 interface ReturningUserErrorState {
   title?: string;
@@ -111,16 +111,18 @@ const ReturningUserErrorPage = () => {
           </AppButton>
         </YStack>
 
-        <details>
-          <summary>Technical details</summary>
-          <pre>{String(errorState?.error ?? "")}</pre>
-        </details>
+        <TechnicalDisclosure label="Technical details">
+          {String(errorState?.error ?? "")}
+        </TechnicalDisclosure>
       </SurfaceCard>
     </PageShell>
   );
 };
 
-const routeConfig: RouteConfig = [
+export const appRoutes: Array<{
+  path: string;
+  Component: ComponentType;
+}> = [
   { path: "/error", Component: ReturningUserErrorPage },
   { path: "/about", Component: AboutPage },
   { path: "/new-position", Component: NewPositionPage },
@@ -129,10 +131,15 @@ const routeConfig: RouteConfig = [
   { path: "/*", Component: IntroPage },
 ];
 
-const BrowserRouter = createBrowserRouter({ routeConfig });
-
 function App() {
-  return <BrowserRouter />;
+  return (
+    <Switch>
+      {appRoutes.slice(0, -1).map(({ path, Component }) => (
+        <Route key={path} path={path} component={Component} />
+      ))}
+      <Route component={IntroPage} />
+    </Switch>
+  );
 }
 
 export default App;

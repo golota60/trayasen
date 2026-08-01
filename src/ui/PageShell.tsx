@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Image, ScrollView, Text, XStack, YStack } from "tamagui";
+import { H1, Image, ScrollView, Text, XStack, YStack } from "tamagui";
 
 export interface PageShellProps {
   title: string;
@@ -38,9 +38,15 @@ export const PageShell = ({
             width={32}
           />
           <YStack flex={1} gap="$2">
-            <Text color="$color" fontSize="$9" fontWeight="700" lineHeight="$9">
+            <H1
+              color="$color"
+              fontSize="$9"
+              fontWeight="700"
+              lineHeight="$9"
+              margin={0}
+            >
               {title}
-            </Text>
+            </H1>
             {description ? (
               <Text color="$muted" fontSize="$4">
                 {description}

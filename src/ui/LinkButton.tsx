@@ -1,4 +1,4 @@
-import { Link } from "found";
+import { Link } from "wouter";
 import { useState, type ReactNode } from "react";
 import { Text, XStack, styled } from "tamagui";
 
@@ -51,7 +51,7 @@ export const LinkButton = ({
     <Link
       onBlur={() => setFocused(false)}
       onFocus={() => setFocused(true)}
-      to={to}
+      href={to}
       style={{
         borderRadius: 8,
         display: "inline-flex",

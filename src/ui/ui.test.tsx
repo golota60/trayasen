@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Input, TamaguiProvider } from "tamagui";
 import appConfig from "../../tamagui.config";
@@ -9,6 +8,8 @@ import { ExternalLink } from "./ExternalLink";
 import { Alert, CarrotSpinner } from "./Feedback";
 import { FormField } from "./FormField";
 import { LinkButton } from "./LinkButton";
+import { PageShell } from "./PageShell";
+import { TechnicalDisclosure } from "./TechnicalDisclosure";
 
 const { openUrlMock } = vi.hoisted(() => ({
   openUrlMock: vi.fn(),
@@ -16,21 +17,6 @@ const { openUrlMock } = vi.hoisted(() => ({
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: openUrlMock,
-}));
-
-vi.mock("found", () => ({
-  Link: ({
-    to,
-    children,
-    ...props
-  }: AnchorHTMLAttributes<HTMLAnchorElement> & {
-    to: string;
-    children: ReactNode;
-  }) => (
-    <a {...props} href={to}>
-      {children}
-    </a>
-  ),
 }));
 
 const renderUi = (node: React.ReactNode) =>
@@ -178,6 +164,36 @@ describe("shared UI", () => {
     expect(className).toContain("_outlineStyle-0focus-solid");
     expect(className).toContain("_outlineWidth-0focus-2px");
     expect(className).toContain("_outlineOffset-0focus-2px");
+  });
+
+  it("renders page titles as level-one headings", () => {
+    renderUi(<PageShell title="Manage positions">Content</PageShell>);
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Manage positions" })
+    ).toBeInTheDocument();
+  });
+
+  it("constrains and wraps a themed technical disclosure", () => {
+    const technicalText = `Native failure: ${"x".repeat(500)}`;
+    renderUi(
+      <TechnicalDisclosure label="Technical details">
+        {technicalText}
+      </TechnicalDisclosure>
+    );
+
+    const summary = screen.getByText("Technical details");
+    const details = summary.closest("details");
+    const pre = details?.querySelector("pre");
+    expect(details).toHaveAccessibleName("Technical details");
+    expect(summary.className).toContain("_col-muted");
+    expect(summary.className).toContain("_outlineColor-0focus-accent");
+    expect(pre).toHaveTextContent(technicalText);
+    expect(pre?.className).toContain("_col-color");
+    expect(getComputedStyle(details as HTMLElement).maxWidth).toBe("100%");
+    expect(getComputedStyle(pre as HTMLElement).maxWidth).toBe("100%");
+    expect(getComputedStyle(pre as HTMLElement).whiteSpace).toBe("pre-wrap");
+    expect(getComputedStyle(pre as HTMLElement).overflowWrap).toBe("anywhere");
   });
 
   it("applies a deterministic orange focus outline to LinkButton", () => {

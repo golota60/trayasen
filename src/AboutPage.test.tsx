@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TamaguiProvider } from "tamagui";
@@ -12,11 +12,6 @@ const mocks = vi.hoisted(() => ({
   openUrl: vi.fn(),
   relaunch: vi.fn(),
   removeConfig: vi.fn(),
-  useSimpleAsync: vi.fn(),
-}));
-
-vi.mock("use-simple-async", () => ({
-  default: mocks.useSimpleAsync,
 }));
 
 vi.mock("@tauri-apps/plugin-autostart", () => ({
@@ -37,6 +32,20 @@ vi.mock("./rustUtils", () => ({
   removeConfig: mocks.removeConfig,
 }));
 
+const deferred = <T,>() => {
+  let resolveDeferred!: (value: T | PromiseLike<T>) => void;
+  let rejectDeferred!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolve, reject) => {
+    resolveDeferred = resolve;
+    rejectDeferred = reject;
+  });
+  return {
+    promise,
+    reject: rejectDeferred,
+    resolve: resolveDeferred,
+  };
+};
+
 const renderAboutPage = () =>
   render(
     <TamaguiProvider config={appConfig} defaultTheme="dark">
@@ -49,6 +58,17 @@ const autostartSwitch = () =>
     name: "Open Trayasen when the system starts",
   });
 
+const waitForAutostart = async (checked: boolean) => {
+  await waitFor(() => {
+    expect(autostartSwitch()).toBeEnabled();
+    if (checked) {
+      expect(autostartSwitch()).toBeChecked();
+    } else {
+      expect(autostartSwitch()).not.toBeChecked();
+    }
+  });
+};
+
 describe("AboutPage settings", () => {
   beforeEach(() => {
     mocks.disable.mockReset();
@@ -57,76 +77,106 @@ describe("AboutPage settings", () => {
     mocks.openUrl.mockReset();
     mocks.relaunch.mockReset();
     mocks.removeConfig.mockReset();
-    mocks.useSimpleAsync.mockReset();
 
     mocks.disable.mockResolvedValue(undefined);
     mocks.enable.mockResolvedValue(undefined);
+    mocks.isEnabled.mockResolvedValue(false);
     mocks.openUrl.mockResolvedValue(undefined);
     mocks.relaunch.mockResolvedValue(undefined);
     mocks.removeConfig.mockResolvedValue(undefined);
-    mocks.useSimpleAsync.mockReturnValue([
-      false,
-      { error: undefined, loading: false, retry: vi.fn() },
-    ]);
   });
 
-  it("renders a checked switch when autostart is enabled upstream", async () => {
-    mocks.useSimpleAsync.mockReturnValue([
-      true,
-      { error: undefined, loading: false, retry: vi.fn() },
-    ]);
+  it("shows a polite visible status while the initial setting read is pending", async () => {
+    const read = deferred<boolean>();
+    mocks.isEnabled.mockReturnValueOnce(read.promise);
 
     renderAboutPage();
 
-    await waitFor(() => expect(autostartSwitch()).toBeChecked());
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Reading startup setting…"
+    );
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(autostartSwitch()).toBeDisabled();
+
+    await act(async () => read.resolve(false));
+    await waitForAutostart(false);
+    expect(
+      screen.queryByText("Reading startup setting…")
+    ).not.toBeInTheDocument();
   });
 
-  it("disables autostart and updates the checked state", async () => {
-    mocks.useSimpleAsync.mockReturnValue([
-      true,
-      { error: undefined, loading: false, retry: vi.fn() },
-    ]);
+  it("enables autostart only after a pending native update succeeds", async () => {
+    const update = deferred<void>();
+    mocks.enable.mockReturnValueOnce(update.promise);
     renderAboutPage();
+    await waitForAutostart(false);
 
-    await waitFor(() => expect(autostartSwitch()).toBeChecked());
-    await userEvent.click(autostartSwitch());
-
-    expect(mocks.disable).toHaveBeenCalledOnce();
-    await waitFor(() => expect(autostartSwitch()).not.toBeChecked());
-  });
-
-  it("enables autostart and updates the checked state", async () => {
-    renderAboutPage();
-
-    await waitFor(() => expect(autostartSwitch()).not.toBeChecked());
     await userEvent.click(autostartSwitch());
 
     expect(mocks.enable).toHaveBeenCalledOnce();
-    await waitFor(() => expect(autostartSwitch()).toBeChecked());
+    expect(autostartSwitch()).toBeDisabled();
+    expect(autostartSwitch()).not.toBeChecked();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Updating startup setting…"
+    );
+
+    await act(async () => update.resolve());
+    await waitForAutostart(true);
+    expect(
+      screen.queryByText("Updating startup setting…")
+    ).not.toBeInTheDocument();
   });
 
-  it("shows an autostart error and re-enables the switch", async () => {
-    let rejectEnable: (error: Error) => void = () => undefined;
-    mocks.enable.mockReturnValueOnce(
-      new Promise<void>((_resolve, reject) => {
-        rejectEnable = reject;
-      })
-    );
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
+  it("disables autostart only after a pending native update succeeds", async () => {
+    const update = deferred<void>();
+    mocks.isEnabled.mockResolvedValueOnce(true);
+    mocks.disable.mockReturnValueOnce(update.promise);
     renderAboutPage();
+    await waitForAutostart(true);
 
     await userEvent.click(autostartSwitch());
 
+    expect(mocks.disable).toHaveBeenCalledOnce();
     expect(autostartSwitch()).toBeDisabled();
-    rejectEnable(new Error("permission denied"));
+    expect(autostartSwitch()).toBeChecked();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Updating startup setting…"
+    );
+
+    await act(async () => update.resolve());
+    await waitForAutostart(false);
+  });
+
+  it("shows an update error and preserves the prior checked state", async () => {
+    const update = deferred<void>();
+    mocks.enable.mockReturnValueOnce(update.promise);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    renderAboutPage();
+    await waitForAutostart(false);
+
+    await userEvent.click(autostartSwitch());
+    expect(autostartSwitch()).not.toBeChecked();
+
+    await act(async () => update.reject(new Error("permission denied")));
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("permission denied")
     );
     expect(autostartSwitch()).toBeEnabled();
     expect(autostartSwitch()).not.toBeChecked();
-    consoleError.mockRestore();
+  });
+
+  it("renders the page and card titles with ordered heading semantics", async () => {
+    renderAboutPage();
+    await waitForAutostart(false);
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Options & About" })
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map(({ textContent }) => textContent?.trim())
+    ).toEqual(["Startup", "Advanced", "About Trayasen"]);
   });
 
   it("removes config before relaunching", async () => {

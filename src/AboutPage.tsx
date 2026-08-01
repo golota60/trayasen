@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Info, RotateCcw, Settings } from "lucide-react";
-import { Label, Switch, Text, XStack, YStack } from "tamagui";
+import { H2, Label, Switch, Text, XStack, YStack } from "tamagui";
 import useSimpleAsync from "use-simple-async";
 import { removeConfig } from "./rustUtils";
 import { AppButton } from "./ui/Button";
@@ -21,9 +21,9 @@ const SectionHeading = ({ icon, title, description }: SectionHeadingProps) => (
   <XStack alignItems="flex-start" gap="$3">
     {icon}
     <YStack flex={1} gap="$1">
-      <Text color="$color" fontSize="$6" fontWeight="700">
+      <H2 color="$color" fontSize="$6" fontWeight="700" margin={0}>
         {title}
-      </Text>
+      </H2>
       <Text color="$muted" fontSize="$4">
         {description}
       </Text>
@@ -135,6 +135,16 @@ const AboutPage = () => {
             <Switch.Thumb />
           </Switch>
         </XStack>
+        {loading ||
+        (isAutostartEnabled === undefined && !autostartReadError) ? (
+          <Text aria-live="polite" color="$muted" role="status">
+            Reading startup setting…
+          </Text>
+        ) : isUpdatingAutostart ? (
+          <Text aria-live="polite" color="$muted" role="status">
+            Updating startup setting…
+          </Text>
+        ) : null}
         {autostartError ? (
           <Alert tone="error" title="Autostart unavailable">
             {autostartError}

@@ -58,12 +58,14 @@ const ManagePositionsPage = () => {
           {actionError}
         </Alert>
       ) : null}
-      <PositionList
-        loading={loading}
-        onRemove={handleRemove}
-        positions={data?.saved_positions}
-        removingName={removingName}
-      />
+      {!loadError ? (
+        <PositionList
+          loading={loading}
+          onRemove={handleRemove}
+          positions={data?.saved_positions}
+          removingName={removingName}
+        />
+      ) : null}
     </PageShell>
   );
 };

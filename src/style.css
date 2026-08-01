@@ -12,6 +12,8 @@ body,
   margin: 0;
   overflow: hidden;
   background: #0b0f14;
+  color: #f5f7fa;
+  color-scheme: dark;
 }
 
 body {

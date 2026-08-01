@@ -57,6 +57,20 @@ describe("IntroPage discovery status", () => {
     );
   });
 
+  it("renders a named recovery disclosure containing long technical errors", () => {
+    const longError = `Discovery failed: ${"unbroken".repeat(100)}`;
+    mocks.useSimpleAsync.mockReturnValue([
+      undefined,
+      { error: longError, loading: false, retry: mocks.retry },
+    ]);
+
+    renderIntroPage();
+
+    const disclosure = screen.getByText("Error details").closest("details");
+    expect(disclosure).toHaveAccessibleName("Error details");
+    expect(disclosure?.querySelector("pre")).toHaveTextContent(longError);
+  });
+
   it("announces the completed no-results message as a polite status", () => {
     mocks.useSimpleAsync.mockReturnValue([
       [],

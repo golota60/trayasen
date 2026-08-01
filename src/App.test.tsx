@@ -3,32 +3,13 @@ import { userEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TamaguiProvider } from "tamagui";
 import appConfig from "../tamagui.config";
-import App from "./App";
+import App, { appRoutes } from "./App";
 
 const mocks = vi.hoisted(() => ({
   connectToDesk: vi.fn(),
-  createBrowserRouter: vi.fn(
-    ({
-      routeConfig,
-    }: {
-      routeConfig: Array<{ path: string; Component: unknown }>;
-    }) => {
-      const errorRoute = routeConfig.find(({ path }) => path === "/error");
-
-      if (!errorRoute) {
-        throw new Error("The recovery route is not configured");
-      }
-
-      return errorRoute.Component;
-    }
-  ),
   relaunch: vi.fn(),
   removeConfig: vi.fn(),
   resetDesk: vi.fn(),
-}));
-
-vi.mock("found", () => ({
-  createBrowserRouter: mocks.createBrowserRouter,
 }));
 
 vi.mock("@tauri-apps/plugin-process", () => ({
@@ -70,6 +51,7 @@ const renderApp = () =>
 
 describe("application recovery route", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/error");
     mocks.connectToDesk.mockReset();
     mocks.relaunch.mockReset();
     mocks.removeConfig.mockReset();
@@ -88,12 +70,7 @@ describe("application recovery route", () => {
   it("keeps all six application routes and renders the configured recovery route", () => {
     renderApp();
 
-    expect(mocks.createBrowserRouter).toHaveBeenCalledOnce();
-    expect(
-      mocks.createBrowserRouter.mock.calls[0][0].routeConfig.map(
-        ({ path }: { path: string }) => path
-      )
-    ).toEqual([
+    expect(appRoutes.map(({ path }) => path)).toEqual([
       "/error",
       "/about",
       "/new-position",
@@ -102,6 +79,22 @@ describe("application recovery route", () => {
       "/*",
     ]);
     expect(screen.getByText("Could not connect")).toBeInTheDocument();
+  });
+
+  it("names and contains long technical recovery details", () => {
+    const longError = `Native adapter failure: ${"A".repeat(500)}`;
+    setRecoveryState({
+      title: "Could not connect",
+      description: "Trayasen could not reconnect to your saved desk.",
+      error: longError,
+      desk_name: "Desk 1234",
+    });
+
+    renderApp();
+
+    const disclosure = screen.getByText("Technical details").closest("details");
+    expect(disclosure).toHaveAccessibleName("Technical details");
+    expect(disclosure?.querySelector("pre")).toHaveTextContent(longError);
   });
 
   it("retries a saved desk and relaunches only after connection succeeds", async () => {

@@ -11,6 +11,7 @@ import { SurfaceCard } from "./ui/Card";
 import { Alert, CarrotSpinner, StatePanel } from "./ui/Feedback";
 import { LinkButton } from "./ui/LinkButton";
 import { PageShell } from "./ui/PageShell";
+import { TechnicalDisclosure } from "./ui/TechnicalDisclosure";
 
 const IntroPage = () => {
   const [data, { error, loading: devicesLoading, retry }] = useSimpleAsync(
@@ -64,10 +65,9 @@ const IntroPage = () => {
               {resetError}
             </Alert>
           ) : null}
-          <details>
-            <summary>Error details</summary>
-            <pre>{String(actualError)}</pre>
-          </details>
+          <TechnicalDisclosure label="Error details">
+            {String(actualError)}
+          </TechnicalDisclosure>
         </SurfaceCard>
       </PageShell>
     );

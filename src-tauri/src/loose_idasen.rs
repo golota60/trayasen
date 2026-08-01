@@ -52,7 +52,11 @@ pub fn bytes_to_position_speed(bytes: &[u8]) -> Result<PositionSpeed, BtError> {
         });
     }
 
-    let position = u16::from_le_bytes([bytes[0], bytes[1]]) + MIN_HEIGHT;
+    let raw_position = u16::from_le_bytes([bytes[0], bytes[1]]);
+    let position = raw_position
+        .checked_add(MIN_HEIGHT)
+        .filter(|position| (MIN_HEIGHT..=MAX_HEIGHT).contains(position))
+        .ok_or(BtError::PositionPayloadOutOfRange { raw_position })?;
     let speed = i16::from_le_bytes([bytes[2], bytes[3]]);
     Ok(PositionSpeed { position, speed })
 }
@@ -78,6 +82,9 @@ pub enum BtError {
         "Bluetooth position payload too short: expected at least {expected} bytes, got {actual}."
     )]
     PositionPayloadTooShort { expected: usize, actual: usize },
+
+    #[error("Bluetooth position payload is outside the supported desk height range: raw position {raw_position}.")]
+    PositionPayloadOutOfRange { raw_position: u16 },
 
     #[error("Desired position has to be between MIN_HEIGHT and MAX_HEIGHT.")]
     PositionNotInRange,
@@ -297,8 +304,8 @@ fn collect_adapter_results<T>(
     jobs: impl IntoIterator<Item = Result<Vec<T>, BtError>>,
 ) -> Result<Vec<T>, BtError> {
     let mut items = Vec::new();
-    let mut successful_adapter = false;
     let mut first_error = None;
+    let mut successful_adapter = false;
 
     for job in jobs {
         match job {
@@ -315,12 +322,14 @@ fn collect_adapter_results<T>(
         }
     }
 
-    if successful_adapter {
+    if !items.is_empty() {
         Ok(items)
     } else if let Some(error) = first_error {
         Err(error)
-    } else {
+    } else if successful_adapter {
         Ok(items)
+    } else {
+        Err(BtError::CannotFindDevice)
     }
 }
 
@@ -473,6 +482,48 @@ mod tests {
     }
 
     #[test]
+    fn position_payload_accepts_supported_boundaries() {
+        let maximum_offset = MAX_HEIGHT - MIN_HEIGHT;
+
+        assert_eq!(
+            bytes_to_position_speed(&[0, 0, 0, 0]).unwrap().position,
+            MIN_HEIGHT
+        );
+        assert_eq!(
+            bytes_to_position_speed(&[maximum_offset as u8, (maximum_offset >> 8) as u8, 0, 0,])
+                .unwrap()
+                .position,
+            MAX_HEIGHT
+        );
+    }
+
+    #[test]
+    fn raw_maximum_position_payload_is_a_recoverable_error() {
+        assert!(matches!(
+            bytes_to_position_speed(&[0xff, 0xff, 0, 0]),
+            Err(BtError::PositionPayloadOutOfRange {
+                raw_position: u16::MAX
+            })
+        ));
+    }
+
+    #[test]
+    fn position_payload_above_supported_range_is_a_recoverable_error() {
+        let invalid_offset = MAX_HEIGHT - MIN_HEIGHT + 1;
+
+        assert!(matches!(
+            bytes_to_position_speed(&[
+                invalid_offset as u8,
+                (invalid_offset >> 8) as u8,
+                0,
+                0,
+            ]),
+            Err(BtError::PositionPayloadOutOfRange { raw_position })
+                if raw_position == invalid_offset
+        ));
+    }
+
+    #[test]
     fn short_position_payload_is_a_recoverable_error() {
         let result = bytes_to_position_speed(&[0x34, 0x12, 0xfe]);
 
@@ -512,6 +563,20 @@ mod tests {
     }
 
     #[test]
+    fn mixed_empty_and_error_returns_the_concrete_error() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
+            Ok(vec![]),
+            Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
+                "adapter unavailable".to_string(),
+            ))),
+        ];
+
+        let error = collect_adapter_results(jobs).unwrap_err();
+
+        assert!(error.to_string().contains("adapter unavailable"));
+    }
+
+    #[test]
     fn successful_adapter_results_survive_other_adapter_errors() {
         let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
             Ok(vec![1]),
@@ -525,7 +590,24 @@ mod tests {
     }
 
     #[test]
-    fn all_adapter_errors_return_a_concrete_error() {
+    fn all_empty_adapter_results_return_empty() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![Ok(vec![]), Ok(vec![])];
+
+        assert_eq!(collect_adapter_results(jobs).unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn no_adapter_results_return_not_found() {
+        let jobs: Vec<Result<Vec<u8>, BtError>> = vec![];
+
+        assert!(matches!(
+            collect_adapter_results(jobs),
+            Err(BtError::CannotFindDevice)
+        ));
+    }
+
+    #[test]
+    fn all_adapter_errors_return_the_first_concrete_error() {
         let jobs: Vec<Result<Vec<u8>, BtError>> = vec![
             Err(BtError::BtlePlugError(btleplug::Error::NotSupported(
                 "first adapter unavailable".to_string(),
@@ -535,9 +617,45 @@ mod tests {
             ))),
         ];
 
-        let result = collect_adapter_results(jobs);
+        let error = collect_adapter_results(jobs).unwrap_err();
 
-        assert!(matches!(result, Err(BtError::BtlePlugError(_))));
+        assert!(error.to_string().contains("first adapter unavailable"));
+        assert!(!error.to_string().contains("second adapter unavailable"));
+    }
+
+    #[tokio::test]
+    async fn not_found_retries_exactly_three_times_before_exhaustion() {
+        let attempts = std::cell::Cell::new(0);
+
+        let result: Result<Vec<u8>, BtError> = retry_not_found(3, || {
+            attempts.set(attempts.get() + 1);
+            async { Err(BtError::CannotFindDevice) }
+        })
+        .await;
+
+        assert_eq!(attempts.get(), 3);
+        assert!(matches!(result, Err(BtError::CannotFindDevice)));
+    }
+
+    #[tokio::test]
+    async fn not_found_retry_can_succeed_on_the_final_attempt() {
+        let attempts = std::cell::Cell::new(0);
+
+        let result = retry_not_found(3, || {
+            attempts.set(attempts.get() + 1);
+            let attempt = attempts.get();
+            async move {
+                if attempt < 3 {
+                    Err(BtError::CannotFindDevice)
+                } else {
+                    Ok(vec![42])
+                }
+            }
+        })
+        .await;
+
+        assert_eq!(attempts.get(), 3);
+        assert_eq!(result.unwrap(), vec![42]);
     }
 
     #[tokio::test]

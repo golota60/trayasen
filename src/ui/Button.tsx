@@ -80,7 +80,7 @@ export const AppButton = ({
 }: AppButtonProps) => (
   <StyledButton
     {...props}
-    aria-label={loading ? loadingLabel : ariaLabel}
+    aria-label={loading ? loadingLabel ?? ariaLabel ?? "Loading" : ariaLabel}
     disabled={disabled || loading}
     opacity={disabled || loading ? 0.55 : 1}
     variant={variant}
